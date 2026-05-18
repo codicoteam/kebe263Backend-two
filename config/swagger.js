@@ -18,6 +18,10 @@ const options = {
         url: process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 5000}`,
         description: 'Active server',
       },
+      {
+        url: `http://66.9.171.45:${process.env.PORT || 5000}`,
+        description: 'Local network (IP)',
+      },
     ],
     components: {
       securitySchemes: {
