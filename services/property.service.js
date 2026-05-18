@@ -1,0 +1,259 @@
+const { Paynow } = require('paynow');
+const Property = require('../models/property.model');
+const PropertyBooking = require('../models/propertyBooking.model');
+const { getConfig } = require('../utils/configCache');
+const notify = require('../utils/notify');
+
+const getPaynow = () =>
+  new Paynow(
+    process.env.PAYNOW_ID,
+    process.env.PAYNOW_KEY,
+    process.env.PAYNOW_RESULT_URL,
+    process.env.PAYNOW_RETURN_URL
+  );
+
+const stripLocation = (obj) => {
+  const copy = { ...obj };
+  delete copy.location;
+  return copy;
+};
+
+// ─── Landlord ─────────────────────────────────────────────────────────────────
+
+const createProperty = async (ownerId, data) => {
+  const { title, description, type, category, purpose, price, currency, rooms, location, images } = data;
+  if (!title || !description || !type || !category || !purpose || price == null) {
+    throw { status: 400, message: 'title, description, type, category, purpose, and price are required' };
+  }
+  return Property.create({
+    owner: ownerId,
+    title,
+    description,
+    type,
+    category,
+    purpose,
+    price,
+    currency: currency || 'USD',
+    rooms: rooms || null,
+    location: location || {},
+    images: images || [],
+  });
+};
+
+const updateProperty = async (propertyId, ownerId, data) => {
+  const property = await Property.findById(propertyId);
+  if (!property) throw { status: 404, message: 'Property not found' };
+  if (property.owner.toString() !== ownerId.toString()) {
+    throw { status: 403, message: 'You can only edit your own listings' };
+  }
+
+  const allowed = ['title', 'description', 'type', 'category', 'purpose', 'price', 'currency', 'rooms', 'location', 'images', 'isAvailable'];
+  for (const key of allowed) {
+    if (data[key] !== undefined) property[key] = data[key];
+  }
+
+  // Re-submit for approval if core details changed
+  const coreChanged = ['title', 'description', 'price', 'location'].some((k) => data[k] !== undefined);
+  if (coreChanged) property.isApproved = false;
+
+  await property.save();
+  return property;
+};
+
+const deleteProperty = async (propertyId, ownerId) => {
+  const property = await Property.findById(propertyId);
+  if (!property) throw { status: 404, message: 'Property not found' };
+  if (property.owner.toString() !== ownerId.toString()) {
+    throw { status: 403, message: 'You can only delete your own listings' };
+  }
+  await property.deleteOne();
+};
+
+const getMyProperties = async (ownerId, { page = 1, limit = 20 }) => {
+  const skip = (Number(page) - 1) * Number(limit);
+  const [properties, total] = await Promise.all([
+    Property.find({ owner: ownerId }).sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
+    Property.countDocuments({ owner: ownerId }),
+  ]);
+  return { properties, pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) } };
+};
+
+// ─── Customer ─────────────────────────────────────────────────────────────────
+
+const listProperties = async ({ page = 1, limit = 20, type, category, purpose, city }) => {
+  const query = { isApproved: true, isAvailable: true };
+  if (type) query.type = type;
+  if (category) query.category = category;
+  if (purpose) query.purpose = purpose;
+  if (city) query['location.city'] = { $regex: city, $options: 'i' };
+
+  const skip = (Number(page) - 1) * Number(limit);
+  const [docs, total] = await Promise.all([
+    Property.find(query).select('-location').sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
+    Property.countDocuments(query),
+  ]);
+  return { properties: docs, pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) } };
+};
+
+const getPropertyById = async (propertyId, userId) => {
+  const property = await Property.findById(propertyId).populate('owner', 'firstName lastName phone email');
+  if (!property || !property.isApproved) throw { status: 404, message: 'Property not found' };
+
+  let viewUnlocked = false;
+  if (userId) {
+    const booking = await PropertyBooking.findOne({ property: propertyId, customer: userId, viewUnlocked: true });
+    viewUnlocked = !!booking;
+  }
+
+  const obj = property.toObject();
+  if (!viewUnlocked) {
+    delete obj.location;
+    if (obj.owner) obj.owner = { firstName: obj.owner.firstName, lastName: obj.owner.lastName };
+  }
+
+  return { ...obj, viewUnlocked };
+};
+
+const unlockProperty = async (propertyId, customer, { phone, method = 'ecocash', email }) => {
+  const property = await Property.findById(propertyId);
+  if (!property || !property.isApproved) throw { status: 404, message: 'Property not found' };
+
+  const existing = await PropertyBooking.findOne({ property: propertyId, customer: customer._id, viewUnlocked: true });
+  if (existing) throw { status: 400, message: 'You have already unlocked this property' };
+
+  const UNLOCK_FEE = Number(await getConfig('unlockFee', process.env.UNLOCK_FEE || '1'));
+  const reference = `PROP-${propertyId}-${customer._id}-${Date.now()}`;
+  const authEmail = email || process.env.PAYNOW_MERCHANT_EMAIL || customer.email;
+
+  const paynow = getPaynow();
+  const payment = paynow.createPayment(reference, authEmail);
+  payment.add(`Unlock: ${property.title}`, UNLOCK_FEE);
+
+  // Save pending booking before initiating — reference is needed by webhook
+  const booking = await PropertyBooking.create({
+    property: propertyId,
+    customer: customer._id,
+    paymentStatus: 'pending',
+    paymentReference: reference,
+    amountPaid: UNLOCK_FEE,
+    viewUnlocked: false,
+  });
+
+  let resp;
+  try {
+    resp = phone ? await paynow.sendMobile(payment, phone, method) : await paynow.send(payment);
+  } catch (err) {
+    await PropertyBooking.findByIdAndDelete(booking._id);
+    throw { status: 502, message: 'Could not reach payment gateway. Please try again.' };
+  }
+
+  if (!resp || !resp.success) {
+    await PropertyBooking.findByIdAndDelete(booking._id);
+    throw { status: 502, message: resp?.error || 'Payment initiation failed. Please try again.' };
+  }
+
+  return {
+    bookingId: booking._id,
+    reference,
+    pollUrl: resp.pollUrl || null,
+    redirectUrl: resp.redirectUrl || null,
+    instructions: resp.instructions || null,
+    amount: UNLOCK_FEE,
+    currency: 'USD',
+  };
+};
+
+// ─── PayNow webhook ───────────────────────────────────────────────────────────
+
+const handlePaynowResult = async (rawBody) => {
+  const paynow = getPaynow();
+  // Verify hash from PayNow before trusting the payload
+  const isValid = paynow.verifyHash(rawBody);
+  if (!isValid) throw { status: 400, message: 'Invalid PayNow signature' };
+
+  const { reference, status, paynowreference } = rawBody;
+  if (!reference) return;
+
+  const booking = await PropertyBooking.findOne({ paymentReference: reference });
+  if (!booking || booking.viewUnlocked) return;
+
+  if (status && status.toLowerCase() === 'paid') {
+    booking.paymentStatus = 'paid';
+    booking.viewUnlocked = true;
+    if (paynowreference) booking.paymentReference = paynowreference;
+    await booking.save();
+    const property = await Property.findById(booking.property).select('title owner');
+    if (property) {
+      notify(booking.customer, 'Property Unlocked', `Full details for "${property.title}" are now available.`, 'payment');
+      notify(property.owner, 'Property Viewed', `Someone unlocked and viewed your property "${property.title}".`, 'payment');
+    }
+  }
+};
+
+// ─── Admin ────────────────────────────────────────────────────────────────────
+
+const approveProperty = async (propertyId) => {
+  const property = await Property.findByIdAndUpdate(propertyId, { isApproved: true }, { new: true });
+  if (!property) throw { status: 404, message: 'Property not found' };
+  return property;
+};
+
+const adminGetAllProperties = async ({ page = 1, limit = 20, isApproved, city, type, purpose }) => {
+  const query = {};
+  if (isApproved !== undefined) query.isApproved = isApproved === 'true';
+  if (city) query['location.city'] = { $regex: city, $options: 'i' };
+  if (type) query.type = type;
+  if (purpose) query.purpose = purpose;
+
+  const skip = (Number(page) - 1) * Number(limit);
+  const [properties, total] = await Promise.all([
+    Property.find(query).populate('owner', 'firstName lastName email phone').sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
+    Property.countDocuments(query),
+  ]);
+  return { properties, pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) } };
+};
+
+const nearbyProperties = async ({ lat, lng, radius = 10, page = 1, limit = 20 }) => {
+  if (!lat || !lng) throw { status: 400, message: 'lat and lng query parameters are required' };
+
+  const radiusMeters = Number(radius) * 1000;
+  const skip = (Number(page) - 1) * Number(limit);
+  const matchQuery = { isApproved: true, isAvailable: true };
+
+  const geoNearStage = {
+    $geoNear: {
+      near: { type: 'Point', coordinates: [Number(lng), Number(lat)] },
+      distanceField: 'distanceMeters',
+      maxDistance: radiusMeters,
+      spherical: true,
+      query: matchQuery,
+    },
+  };
+
+  const [results, countResult] = await Promise.all([
+    Property.aggregate([geoNearStage, { $skip: skip }, { $limit: Number(limit) }]),
+    Property.aggregate([geoNearStage, { $count: 'total' }]),
+  ]);
+
+  const total = countResult[0]?.total || 0;
+  const properties = results.map((doc) => ({
+    ...doc,
+    distanceKm: Number((doc.distanceMeters / 1000).toFixed(2)),
+  }));
+
+  return { properties, pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) } };
+};
+
+module.exports = {
+  createProperty,
+  updateProperty,
+  deleteProperty,
+  getMyProperties,
+  listProperties,
+  getPropertyById,
+  unlockProperty,
+  handlePaynowResult,
+  approveProperty,
+  adminGetAllProperties,
+  nearbyProperties,
+};
