@@ -12,6 +12,52 @@ const getOrCreateWallet = async (ownerId, currency = 'USD') => {
   return wallet;
 };
 
+const reservePlatformFee = async (booking, wallet, feePercent) => {
+  const platformFee = Number((booking.agreedPrice * (feePercent / 100)).toFixed(2));
+  if (wallet.balance < platformFee) {
+    throw {
+      status: 400,
+      message: `Insufficient wallet balance. Please deposit ${booking.currency} ${platformFee} to reserve the platform fee for this booking.`,
+    };
+  }
+
+  wallet.balance = Number((wallet.balance - platformFee).toFixed(2));
+  await wallet.save();
+
+  await WalletTransaction.create({
+    wallet: wallet._id,
+    type: 'deduction',
+    amount: platformFee,
+    reference: `BOOKING-RESERVE-${booking._id}`,
+    description: `Reserved platform fee for booking ${booking._id}`,
+    status: 'pending',
+  });
+
+  booking.platformFee = platformFee;
+  booking.ownerEarnings = Number((booking.agreedPrice - platformFee).toFixed(2));
+  await booking.save();
+  return booking;
+};
+
+const releaseReservedPlatformFee = async (booking) => {
+  if (!booking.platformFee || booking.platformFee <= 0) return;
+
+  const wallet = await getOrCreateWallet(booking.owner, booking.currency);
+  const transaction = await WalletTransaction.findOne({
+    wallet: wallet._id,
+    reference: `BOOKING-RESERVE-${booking._id}`,
+    type: 'deduction',
+    status: 'pending',
+  });
+
+  if (!transaction) return;
+
+  wallet.balance = Number((wallet.balance + transaction.amount).toFixed(2));
+  await wallet.save();
+
+  await transaction.deleteOne();
+};
+
 const createBooking = async (customerId, vehicleId, data) => {
   const { pickupLocation, dropoffLocation, agreedPrice, currency } = data;
   if (!pickupLocation || !dropoffLocation || agreedPrice == null) {
@@ -49,8 +95,13 @@ const acceptBooking = async (bookingId, ownerId) => {
   if (booking.owner.toString() !== ownerId.toString()) throw { status: 403, message: 'Not your booking' };
   if (booking.status !== 'pending') throw { status: 400, message: `Cannot accept a booking with status: ${booking.status}` };
 
+  const feePercent = Number(await getConfig('platformFeePercent', process.env.PLATFORM_FEE_PERCENT || '10'));
+  const wallet = await getOrCreateWallet(booking.owner, booking.currency);
+  await reservePlatformFee(booking, wallet, feePercent);
+
   booking.status = 'accepted';
   await booking.save();
+
   notify(booking.customer, 'Booking Accepted', 'Your vehicle booking has been accepted. The driver is on the way.', 'booking');
   return booking;
 };
@@ -73,23 +124,22 @@ const completeBooking = async (bookingId, ownerId) => {
   if (booking.status !== 'inProgress') throw { status: 400, message: `Cannot complete a booking with status: ${booking.status}` };
 
   const feePercent = Number(await getConfig('platformFeePercent', process.env.PLATFORM_FEE_PERCENT || '10'));
+  const platformFee = booking.platformFee || Number((booking.agreedPrice * (feePercent / 100)).toFixed(2));
+  const ownerEarnings = booking.ownerEarnings || Number((booking.agreedPrice - platformFee).toFixed(2));
 
-  const platformFee = Number((booking.agreedPrice * (feePercent / 100)).toFixed(2));
-  const ownerEarnings = Number((booking.agreedPrice - platformFee).toFixed(2));
-
-  // Deduct platform fee from owner wallet
   const wallet = await getOrCreateWallet(booking.owner, booking.currency);
-  wallet.balance = Number((wallet.balance - platformFee).toFixed(2));
-  await wallet.save();
-
-  await WalletTransaction.create({
+  const transaction = await WalletTransaction.findOne({
     wallet: wallet._id,
+    reference: `BOOKING-RESERVE-${booking._id}`,
     type: 'deduction',
-    amount: platformFee,
-    reference: `BOOKING-${bookingId}`,
-    description: `Platform fee (${feePercent}%) for booking ${bookingId}`,
-    status: 'completed',
+    status: 'pending',
   });
+
+  if (transaction) {
+    transaction.status = 'completed';
+    transaction.description = `Platform fee (${feePercent}%) charged for booking ${bookingId}`;
+    await transaction.save();
+  }
 
   booking.status = 'completed';
   booking.platformFee = platformFee;
@@ -115,6 +165,8 @@ const cancelBooking = async (bookingId, userId) => {
   if (['completed', 'cancelled'].includes(booking.status)) {
     throw { status: 400, message: `Cannot cancel a booking with status: ${booking.status}` };
   }
+
+  await releaseReservedPlatformFee(booking);
 
   booking.status = 'cancelled';
   await booking.save();

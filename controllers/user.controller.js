@@ -19,6 +19,16 @@ const updateMe = async (req, res, next) => {
   }
 };
 
+const changeRole = async (req, res, next) => {
+  try {
+    const { role } = req.body;
+    const user = await userService.changeRole(req.user._id, role);
+    return success(res, 'Account role updated successfully', { user });
+  } catch (err) {
+    next(err);
+  }
+};
+
 const changePassword = async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -88,4 +98,4 @@ const deactivateUser = async (req, res, next) => {
   }
 };
 
-module.exports = { getMe, updateMe, changePassword, getAllUsers, getUserById, updateUser, deleteUser, activateUser, deactivateUser };
+module.exports = { getMe, updateMe, changeRole, changePassword, getAllUsers, getUserById, updateUser, deleteUser, activateUser, deactivateUser };

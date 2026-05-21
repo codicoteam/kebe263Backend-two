@@ -64,6 +64,35 @@ router.put('/me', authenticate, userController.updateMe);
 
 /**
  * @swagger
+ * /api/users/me/role:
+ *   put:
+ *     summary: Change logged-in user role between customer and serviceProvider
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [role]
+ *             properties:
+ *               role:
+ *                 type: string
+ *                 enum: [customer, serviceProvider]
+ *     responses:
+ *       200:
+ *         description: Account role updated
+ *       400:
+ *         description: Invalid role or admin role change attempted
+ *       401:
+ *         description: Unauthorized
+ */
+router.put('/me/role', authenticate, userController.changeRole);
+
+/**
+ * @swagger
  * /api/users/me/change-password:
  *   put:
  *     summary: Change password for logged-in user

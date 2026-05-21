@@ -23,6 +23,23 @@ const updateMe = async (userId, updates) => {
   return user.toSafeObject();
 };
 
+const changeRole = async (userId, role) => {
+  const allowedRoles = ['customer', 'serviceProvider'];
+  if (!role || typeof role !== 'string' || !allowedRoles.includes(role)) {
+    throw { status: 400, message: 'role must be one of customer or serviceProvider' };
+  }
+
+  const user = await User.findById(userId);
+  if (!user) throw { status: 404, message: 'User not found' };
+  if (user.isAdmin) {
+    throw { status: 400, message: 'Admin users cannot change customer/serviceProvider roles' };
+  }
+
+  user.roles = [role];
+  await user.save();
+  return user.toSafeObject();
+};
+
 const changePassword = async (userId, { currentPassword, newPassword }) => {
   const user = await User.findById(userId).select('+password');
   if (!user) throw { status: 404, message: 'User not found' };
@@ -103,4 +120,4 @@ const toggleUserStatus = async (id, isActive) => {
   return user.toSafeObject();
 };
 
-module.exports = { getMe, updateMe, changePassword, getAllUsers, getUserById, updateUser, deleteUser, toggleUserStatus };
+module.exports = { getMe, updateMe, changeRole, changePassword, getAllUsers, getUserById, updateUser, deleteUser, toggleUserStatus };

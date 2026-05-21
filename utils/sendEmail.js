@@ -1,16 +1,36 @@
 const nodemailer = require('nodemailer');
 
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: Number(process.env.EMAIL_PORT) || 587,
-  secure: process.env.EMAIL_SECURE === 'true',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+const validateEmailConfig = () => {
+  const required = ['EMAIL_HOST', 'EMAIL_PORT', 'EMAIL_USER', 'EMAIL_PASS'];
+  const missing = required.filter((name) => !process.env[name]);
+  if (missing.length) {
+    throw new Error(`Missing SMTP configuration: ${missing.join(', ')}. Update your .env file.`);
+  }
+};
+
+const createTransporter = () => {
+  validateEmailConfig();
+  return nodemailer.createTransport({
+    host: process.env.EMAIL_HOST,
+    port: Number(process.env.EMAIL_PORT) || 587,
+    secure: process.env.EMAIL_SECURE === 'true',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+};
 
 const sendEmail = async ({ to, subject, html }) => {
+  if (process.env.EMAIL_TEST_MODE === 'true') {
+    console.log('[EMAIL TEST MODE] to:', to);
+    console.log('[EMAIL TEST MODE] subject:', subject);
+    console.log('[EMAIL TEST MODE] html:', html);
+    return { test: true };
+  }
+
+  const transporter = createTransporter();
+
   const mailOptions = {
     from: process.env.EMAIL_FROM || 'kebe263 Super App <noreply@kebe263.co.zw>',
     to,
@@ -18,8 +38,13 @@ const sendEmail = async ({ to, subject, html }) => {
     html,
   };
 
-  const info = await transporter.sendMail(mailOptions);
-  return info;
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    return info;
+  } catch (err) {
+    const details = err.response || err.message || String(err);
+    throw new Error(`Email delivery failed. Check SMTP credentials and Gmail settings. ${details}`);
+  }
 };
 
 const otpEmailTemplate = (otp, purpose = 'verification') => {
