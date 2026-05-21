@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -92,6 +92,15 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/chat', chatRoutes);
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'kebe263 Super App API is running',
+    health: '/api/health',
+    docs: '/api-docs'
+  });
+});
+
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` });
@@ -100,3 +109,4 @@ app.use((req, res) => {
 app.use(errorHandler);
 
 module.exports = app;
+
