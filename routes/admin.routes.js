@@ -556,6 +556,7 @@ router.delete('/services/:id', ...guard, adminController.deleteService);
  *       200: { description: Paginated service bookings }
  */
 router.get('/bookings/service', ...guard, adminController.getServiceBookings);
+router.get('/bookings/services', ...guard, adminController.getServiceBookings);
 
 // ─── Reports ──────────────────────────────────────────────────────────────────
 
