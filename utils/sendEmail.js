@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const dns = require('dns');
 
 const validateEmailConfig = () => {
   const required = ['EMAIL_HOST', 'EMAIL_PORT', 'EMAIL_USER', 'EMAIL_PASS'];
@@ -10,7 +11,7 @@ const validateEmailConfig = () => {
 
 const createTransporter = () => {
   validateEmailConfig();
-  return nodemailer.createTransport({
+  const transportOptions = {
     host: process.env.EMAIL_HOST,
     port: Number(process.env.EMAIL_PORT) || 587,
     secure: process.env.EMAIL_SECURE === 'true',
@@ -18,7 +19,16 @@ const createTransporter = () => {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
-  });
+  };
+
+  // Optional: force IPv4 DNS lookups when the environment can't reach IPv6 addresses.
+  if (process.env.EMAIL_FORCE_IPV4 === 'true') {
+    transportOptions.lookup = (hostname, options, callback) => {
+      return dns.lookup(hostname, { family: 4 }, callback);
+    };
+  }
+
+  return nodemailer.createTransport(transportOptions);
 };
 
 const sendEmail = async ({ to, subject, html }) => {
