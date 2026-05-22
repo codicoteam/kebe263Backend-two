@@ -29,16 +29,35 @@ app.use(helmet({
   contentSecurityPolicy: false,
 }));
 
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+const envOrigins = (process.env.ALLOWED_ORIGINS || '')
   .split(',')
-  .map(o => o.trim())
+  .map((o) => o.trim())
   .filter(Boolean);
+
+const extraOrigins = [];
+if (process.env.API_BASE_URL) {
+  try {
+    extraOrigins.push(new URL(process.env.API_BASE_URL).origin);
+  } catch {
+    extraOrigins.push(process.env.API_BASE_URL);
+  }
+}
+if (process.env.CLIENT_URL) {
+  try {
+    extraOrigins.push(new URL(process.env.CLIENT_URL).origin);
+  } catch {
+    extraOrigins.push(process.env.CLIENT_URL);
+  }
+}
+
+const allowedOrigins = Array.from(new Set([...envOrigins, ...extraOrigins]));
+const allowAllOrigins = allowedOrigins.length === 0 || allowedOrigins.includes('*');
 
 app.use(cors({
   origin: (origin, callback) => {
     // allow requests with no origin (Postman, mobile apps, curl)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+    if (allowAllOrigins || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
     callback(new Error(`CORS: origin ${origin} not allowed`));
