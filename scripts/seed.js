@@ -1,5 +1,6 @@
 const dotenv = require('dotenv');
 const bcrypt = require('bcryptjs');
+const mongoose = require('mongoose');
 const connectDB = require('../config/db');
 const User = require('../models/user.model');
 const ServiceProvider = require('../models/serviceProvider.model');
@@ -17,50 +18,30 @@ const seed = async () => {
 
     const usersData = [
       {
-        firstName: 'System',
-        lastName: 'Admin',
-        email: 'admin@kebe263.test',
-        phone: '+263771000001',
-        password: 'Admin123!',
+        _id: mongoose.Types.ObjectId('6a0eb813d6380f6920730133'),
+        firstName: 'Takunda',
+        lastName: 'Gowa',
+        email: 'takundagowa@gmail.com',
+        phone: '+263787259729',
+        password: '$2a$12$uqfFbkhWcEbUrQaFYLefVu2e4Dcj9H3QuVnM6a2QW.FO8M39o9Nui',
         roles: [],
         isAdmin: true,
         isVerified: true,
+        profileImage: null,
+        isActive: true,
       },
       {
-        firstName: 'Tendai',
-        lastName: 'Chikomo',
-        email: 'tendai.provider@kebe263.test',
-        phone: '+263771000002',
-        password: 'Provider123!',
-        roles: ['serviceProvider'],
-        isVerified: true,
-      },
-      {
-        firstName: 'Anele',
-        lastName: 'Moyo',
-        email: 'anele.provider@kebe263.test',
-        phone: '+263771000003',
-        password: 'Provider123!',
-        roles: ['serviceProvider'],
-        isVerified: true,
-      },
-      {
-        firstName: 'Nyasha',
-        lastName: 'Ngenje',
-        email: 'nyasha.customer@kebe263.test',
-        phone: '+263771000004',
-        password: 'Customer123!',
+        _id: mongoose.Types.ObjectId('6a0eba3ed6380f6920730139'),
+        firstName: 'Takunda',
+        lastName: 'Gowa',
+        email: 'gowatakunda@gmail.com',
+        phone: '+263787259729',
+        password: '$2a$12$kmIQjNi8uZnC20dLLPxlo.M7kvgy3nq5OFvirNk5yMk2PRqybp0pW',
         roles: ['customer'],
+        isAdmin: false,
         isVerified: true,
-      },
-      {
-        firstName: 'Tinashe',
-        lastName: 'Gumede',
-        email: 'tinashe.customer@kebe263.test',
-        phone: '+263771000005',
-        password: 'Customer123!',
-        roles: ['customer'],
-        isVerified: true,
+        profileImage: null,
+        isActive: true,
       },
     ];
 
@@ -75,7 +56,10 @@ const seed = async () => {
         continue;
       }
 
-      const hashedPassword = await bcrypt.hash(userData.password, 12);
+      const hashedPassword = userData.password.startsWith('$2a$12$')
+        ? userData.password
+        : await bcrypt.hash(userData.password, 12);
+
       const created = await User.create({
         ...userData,
         password: hashedPassword,
