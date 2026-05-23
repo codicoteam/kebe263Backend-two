@@ -54,6 +54,15 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    kycStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending',
+    },
+    kycDocuments: [{ type: String }],
+    kycReviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    kycReviewedAt: { type: Date, default: null },
+    kycComments: { type: String, default: null },
     profileImage: {
       type: String,
       default: null,

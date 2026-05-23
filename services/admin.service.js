@@ -7,6 +7,7 @@ const ServiceProvider = require('../models/serviceProvider.model');
 const ServiceBooking = require('../models/serviceBooking.model');
 const Wallet = require('../models/wallet.model');
 const WalletTransaction = require('../models/walletTransaction.model');
+const Notification = require('../models/notification.model');
 const PlatformConfig = require('../models/platformConfig.model');
 const { invalidateCache } = require('../utils/configCache');
 
@@ -34,6 +35,74 @@ const updateConfig = async (adminId, key, { value, description }) => {
   return config;
 };
 
+const categoryConfigKeys = {
+  property: 'propertyCategories',
+  vehicle: 'vehicleTypes',
+  service: 'serviceCategories',
+};
+
+const parseCategoryValue = (value) => String(value || '').trim().toLowerCase();
+
+const getCategoryConfig = async (entity) => {
+  const key = categoryConfigKeys[entity];
+  if (!key) throw { status: 400, message: 'Invalid category entity' };
+  const config = await PlatformConfig.findOne({ key });
+  if (!config) return [];
+  try {
+    return JSON.parse(config.value);
+  } catch {
+    return String(config.value || '').split(',').map((item) => item.trim()).filter(Boolean);
+  }
+};
+
+const getCategories = async () => {
+  const [property, vehicle, service] = await Promise.all([
+    getCategoryConfig('property'),
+    getCategoryConfig('vehicle'),
+    getCategoryConfig('service'),
+  ]);
+  return { property, vehicle, service };
+};
+
+const addCategory = async (adminId, entity, value, description = null) => {
+  if (!value) throw { status: 400, message: 'Category value is required' };
+  const normalized = parseCategoryValue(value);
+  const key = categoryConfigKeys[entity];
+  if (!key) throw { status: 400, message: 'Invalid category entity' };
+  const categories = await getCategoryConfig(entity);
+  if (categories.map(parseCategoryValue).includes(normalized)) {
+    throw { status: 409, message: `Category '${value}' already exists for ${entity}` };
+  }
+  categories.push(value);
+  const config = await updateConfig(adminId, key, { value: JSON.stringify(categories), description });
+  return { key: config.key, categories: await getCategoryConfig(entity) };
+};
+
+const removeCategory = async (adminId, entity, value) => {
+  const normalized = parseCategoryValue(value);
+  const key = categoryConfigKeys[entity];
+  if (!key) throw { status: 400, message: 'Invalid category entity' };
+  const categories = await getCategoryConfig(entity);
+  const filtered = categories.filter((item) => parseCategoryValue(item) !== normalized);
+  if (filtered.length === categories.length) throw { status: 404, message: `Category '${value}' not found for ${entity}` };
+  const config = await updateConfig(adminId, key, { value: JSON.stringify(filtered) });
+  return { key: config.key, categories: await getCategoryConfig(entity) };
+};
+
+const broadcastNotification = async (title, message, type = 'system', role = null) => {
+  const query = { isActive: true };
+  if (role) query.roles = role;
+  const recipients = await User.find(query).select('_id');
+  if (!recipients.length) return [];
+  const notifications = recipients.map((recipient) => ({
+    recipient: recipient._id,
+    title,
+    message,
+    type,
+  }));
+  return Notification.insertMany(notifications);
+};
+
 // ─── User Management ──────────────────────────────────────────────────────────
 
 const banUser = async (userId) => {
@@ -53,6 +122,72 @@ const softDeleteUser = async (userId) => {
   const user = await User.findByIdAndUpdate(userId, { isActive: false, isVerified: false }, { new: true });
   if (!user) throw { status: 404, message: 'User not found' };
   return user.toSafeObject();
+};
+
+const updateKycStatus = async (adminId, userId, { kycStatus, kycComments }) => {
+  if (!['pending', 'approved', 'rejected'].includes(kycStatus)) throw { status: 400, message: 'Invalid KYC status' };
+  const user = await User.findByIdAndUpdate(
+    userId,
+    {
+      kycStatus,
+      kycComments: kycComments || null,
+      kycReviewedBy: adminId,
+      kycReviewedAt: new Date(),
+    },
+    { new: true }
+  );
+  if (!user) throw { status: 404, message: 'User not found' };
+  return user.toSafeObject();
+};
+
+const getAdminLocations = async () => {
+  const [properties, vehicles, services] = await Promise.all([
+    Property.find({ isApproved: true, 'location.coordinates.0': { $exists: true } }).select('title location type category'),
+    Vehicle.find({ isApproved: true, 'currentLocation.coordinates.0': { $exists: true } }).select('make model currentLocation type'),
+    ServiceProvider.find({ isApproved: true, 'location.coordinates.0': { $exists: true } }).select('businessName location category'),
+  ]);
+  return { properties, vehicles, services };
+};
+
+const refundBooking = async (adminId, { bookingType, bookingId, amount, reason }) => {
+  const types = {
+    property: { model: PropertyBooking, populate: 'property', amountField: 'amountPaid' },
+    vehicle: { model: VehicleBooking, populate: 'vehicle', amountField: 'agreedPrice' },
+    service: { model: ServiceBooking, populate: 'service', amountField: 'agreedPrice' },
+  };
+  const config = types[bookingType];
+  if (!config) throw { status: 400, message: 'Invalid booking type' };
+  const booking = await config.model.findById(bookingId);
+  if (!booking) throw { status: 404, message: 'Booking not found' };
+  if (booking.paymentStatus !== 'paid') throw { status: 400, message: 'Only paid bookings can be refunded' };
+  if (booking.refundStatus === 'refunded') throw { status: 400, message: 'Booking already refunded' };
+  const refundAmount = amount != null ? Number(amount) : Number(booking[config.amountField] || 0);
+  if (refundAmount <= 0) throw { status: 400, message: 'Refund amount must be greater than zero' };
+  let wallet = await Wallet.findOne({ owner: booking.customer });
+  if (!wallet) wallet = await Wallet.create({ owner: booking.customer, balance: 0, currency: booking.currency || 'USD' });
+  wallet.balance = Number((wallet.balance + refundAmount).toFixed(2));
+  await wallet.save();
+  await WalletTransaction.create({
+    wallet: wallet._id,
+    type: 'deposit',
+    amount: refundAmount,
+    reference: `REFUND-${bookingType.toUpperCase()}-${Date.now()}`,
+    description: `Admin refund for ${bookingType} booking ${bookingId}: ${reason || 'No reason provided'}`,
+    status: 'completed',
+  });
+  booking.refundStatus = 'refunded';
+  booking.refundReason = reason || 'Refund issued by admin';
+  booking.refundedAt = new Date();
+  booking.paymentStatus = 'pending';
+  if (booking.status) booking.status = 'cancelled';
+  await booking.save();
+  await Notification.create({
+    recipient: booking.customer,
+    title: 'Booking refund processed',
+    message: `Your ${bookingType} booking refund of ${refundAmount.toFixed(2)} ${wallet.currency} has been completed.`,
+    type: 'payment',
+  });
+  return { booking, refundAmount };
 };
 
 // ─── Reject operations ────────────────────────────────────────────────────────
@@ -230,6 +365,8 @@ const getUserReport = async ({ startDate, endDate }) => {
 
 module.exports = {
   getAllConfig, createConfig, updateConfig,
+  getCategories, addCategory, removeCategory,
+  broadcastNotification, updateKycStatus, refundBooking, getAdminLocations,
   banUser, verifyUser, softDeleteUser,
   rejectProperty, rejectVehicle, rejectService,
   adminDeleteProperty, adminDeleteVehicle, adminDeleteService,

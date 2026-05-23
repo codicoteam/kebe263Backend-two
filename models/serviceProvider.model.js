@@ -4,12 +4,7 @@ const serviceProviderSchema = new mongoose.Schema(
   {
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     businessName: { type: String, required: [true, 'Business name is required'], trim: true },
-    category: {
-      type: String,
-      enum: ['cleaning', 'gardening', 'carpentry', 'plumbing', 'electrical', 'legal',
-             'painting', 'moving', 'security', 'tutoring', 'catering', 'other'],
-      required: true,
-    },
+    category: { type: String, required: true },
     description: { type: String, required: [true, 'Description is required'] },
     profileImage: { type: String, default: null },
     portfolioImages: [{ type: String }],

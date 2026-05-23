@@ -83,6 +83,160 @@ router.post('/config', ...guard, adminController.createConfig);
  */
 router.put('/config/:key', ...guard, adminController.updateConfig);
 
+/**
+ * @swagger
+ * /api/admin/categories:
+ *   get:
+ *     summary: Get admin-managed category lists for property, vehicle and service modules
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200: { description: Category lists }
+ */
+router.get('/categories', ...guard, adminController.getCategories);
+
+/**
+ * @swagger
+ * /api/admin/categories:
+ *   post:
+ *     summary: Add a dynamic category for properties, vehicles or services
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [entity, value]
+ *             properties:
+ *               entity: { type: string, enum: [property, vehicle, service] }
+ *               value: { type: string }
+ *               description: { type: string }
+ *     responses:
+ *       201: { description: Category added }
+ */
+router.post('/categories', ...guard, adminController.addCategory);
+
+/**
+ * @swagger
+ * /api/admin/categories/{entity}/{value}:
+ *   delete:
+ *     summary: Delete a dynamic category for a module
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: entity
+ *         required: true
+ *         schema: { type: string, enum: [property, vehicle, service] }
+ *       - in: path
+ *         name: value
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Category removed }
+ */
+router.delete('/categories/:entity/:value', ...guard, adminController.removeCategory);
+
+/**
+ * @swagger
+ * /api/admin/notifications/broadcast:
+ *   post:
+ *     summary: Broadcast a notification to users or a specific user role
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [title, message]
+ *             properties:
+ *               title: { type: string }
+ *               message: { type: string }
+ *               type: { type: string, example: system }
+ *               role: { type: string, enum: [customer, serviceProvider] }
+ *     responses:
+ *       200: { description: Notifications delivered }
+ */
+router.post('/notifications/broadcast', ...guard, adminController.broadcastNotifications);
+
+/**
+ * @swagger
+ * /api/admin/users/{id}/kyc:
+ *   put:
+ *     summary: Update a user's KYC status
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [kycStatus]
+ *             properties:
+ *               kycStatus: { type: string, enum: [pending, approved, rejected] }
+ *               kycComments: { type: string }
+ *     responses:
+ *       200: { description: KYC status updated }
+ */
+router.put('/users/:id/kyc', ...guard, adminController.updateKycStatus);
+
+/**
+ * @swagger
+ * /api/admin/refunds/{id}:
+ *   post:
+ *     summary: Issue an admin refund for a paid booking
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [bookingType]
+ *             properties:
+ *               bookingType: { type: string, enum: [property, vehicle, service] }
+ *               amount: { type: number }
+ *               reason: { type: string }
+ *     responses:
+ *       200: { description: Refund processed }
+ */
+router.post('/refunds/:id', ...guard, adminController.processRefund);
+
+/**
+ * @swagger
+ * /api/admin/locations:
+ *   get:
+ *     summary: Get admin dashboard locations for properties, vehicles, and service providers
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200: { description: Location map data }
+ */
+router.get('/locations', ...guard, adminController.getAdminLocations);
+
 // ─── Users ────────────────────────────────────────────────────────────────────
 
 /**

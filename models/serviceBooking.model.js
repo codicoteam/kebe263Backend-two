@@ -22,6 +22,9 @@ const serviceBookingSchema = new mongoose.Schema(
     providerEarnings: { type: Number, default: 0 },
     paymentStatus: { type: String, enum: ['pending', 'paid'], default: 'pending' },
     paymentReference: { type: String, default: null },
+    refundStatus: { type: String, enum: ['none', 'requested', 'refunded'], default: 'none' },
+    refundReason: { type: String, default: null },
+    refundedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

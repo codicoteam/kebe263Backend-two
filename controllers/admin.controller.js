@@ -27,6 +27,47 @@ const updateConfig = async (req, res, next) => {
   catch (err) { next(err); }
 };
 
+const getCategories = async (req, res, next) => {
+  try { return success(res, 'Categories fetched', await adminService.getCategories()); }
+  catch (err) { next(err); }
+};
+
+const addCategory = async (req, res, next) => {
+  try {
+    const { entity, value, description } = req.body;
+    return success(res, 'Category added', await adminService.addCategory(req.user._id, entity, value, description), 201);
+  } catch (err) { next(err); }
+};
+
+const removeCategory = async (req, res, next) => {
+  try { return success(res, 'Category removed', await adminService.removeCategory(req.user._id, req.params.entity, req.params.value)); }
+  catch (err) { next(err); }
+};
+
+const broadcastNotifications = async (req, res, next) => {
+  try {
+    const { title, message, type, role } = req.body;
+    return success(res, 'Notifications sent', await adminService.broadcastNotification(title, message, type, role));
+  } catch (err) { next(err); }
+};
+
+const updateKycStatus = async (req, res, next) => {
+  try { return success(res, 'KYC status updated', { user: await adminService.updateKycStatus(req.user._id, req.params.id, req.body) }); }
+  catch (err) { next(err); }
+};
+
+const processRefund = async (req, res, next) => {
+  try {
+    const result = await adminService.refundBooking(req.user._id, { bookingType: req.body.bookingType, bookingId: req.params.id, amount: req.body.amount, reason: req.body.reason });
+    return success(res, 'Refund processed', result);
+  } catch (err) { next(err); }
+};
+
+const getAdminLocations = async (req, res, next) => {
+  try { return success(res, 'Admin locations fetched', await adminService.getAdminLocations()); }
+  catch (err) { next(err); }
+};
+
 // ─── Users ────────────────────────────────────────────────────────────────────
 
 const getUsers = async (req, res, next) => {
@@ -196,6 +237,8 @@ const adminGetChatRooms = async (req, res, next) => {
 
 module.exports = {
   getConfig, createConfig, updateConfig,
+  getCategories, addCategory, removeCategory,
+  broadcastNotifications, updateKycStatus, processRefund, getAdminLocations,
   getUsers, getUser, banUser, verifyUser, deleteUser,
   getProperties, approveProperty, rejectProperty, deleteProperty, getPropertyBookings,
   getVehicles, approveVehicle, rejectVehicle, deleteVehicle, getVehicleBookings, getWallets, getUserWallet,
