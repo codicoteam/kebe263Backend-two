@@ -1,5 +1,7 @@
 const nodemailer = require('nodemailer');
 const dns = require('dns');
+const { promisify } = require('util');
+const resolve4 = promisify(dns.resolve4);
 
 const validateEmailConfig = () => {
   const required = ['EMAIL_HOST', 'EMAIL_PORT', 'EMAIL_USER', 'EMAIL_PASS'];
@@ -9,7 +11,7 @@ const validateEmailConfig = () => {
   }
 };
 
-const createTransporter = () => {
+const createTransporter = async () => {
   validateEmailConfig();
   const transportOptions = {
     host: process.env.EMAIL_HOST,
@@ -23,9 +25,18 @@ const createTransporter = () => {
 
   // Optional: force IPv4 DNS lookups when the environment can't reach IPv6 addresses.
   if (process.env.EMAIL_FORCE_IPV4 === 'true') {
-    transportOptions.lookup = (hostname, options, callback) => {
-      return dns.lookup(hostname, { family: 4 }, callback);
-    };
+    // Prefer resolving the IPv4 address and using it directly to avoid any IPv6 attempts.
+    try {
+      const addresses = await resolve4(process.env.EMAIL_HOST || 'smtp.gmail.com');
+      if (Array.isArray(addresses) && addresses.length) {
+        transportOptions.host = addresses[0];
+        // also provide a lookup fallback to be safe
+        transportOptions.lookup = (hostname, options, callback) => dns.lookup(hostname, { family: 4 }, callback);
+      }
+    } catch (err) {
+      // If resolution fails, fall back to lookup-only approach.
+      transportOptions.lookup = (hostname, options, callback) => dns.lookup(hostname, { family: 4 }, callback);
+    }
   }
 
   return nodemailer.createTransport(transportOptions);
@@ -39,7 +50,11 @@ const sendEmail = async ({ to, subject, html }) => {
     return { test: true };
   }
 
-  const transporter = createTransporter();
+  const transporter = await createTransporter();
+
+  if (process.env.EMAIL_FORCE_IPV4 === 'true') {
+    console.log('[EMAIL] EMAIL_FORCE_IPV4=true — using IPv4 transport host:', transporter.options && transporter.options.host);
+  }
 
   const mailOptions = {
     from: process.env.EMAIL_FROM || 'kebe263 Super App <noreply@kebe263.co.zw>',
