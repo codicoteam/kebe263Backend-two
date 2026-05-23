@@ -56,6 +56,13 @@ const sendEmail = async ({ to, subject, html }) => {
     console.log('[EMAIL] EMAIL_FORCE_IPV4=true — using IPv4 transport host:', transporter.options && transporter.options.host);
   }
 
+  console.log('[EMAIL] Transport config:', {
+    host: transporter.options?.host,
+    port: transporter.options?.port,
+    secure: transporter.options?.secure,
+    user: transporter.options?.auth?.user || 'none',
+  });
+
   const mailOptions = {
     from: process.env.EMAIL_FROM || 'kebe263 Super App <noreply@kebe263.co.zw>',
     to,
@@ -64,10 +71,17 @@ const sendEmail = async ({ to, subject, html }) => {
   };
 
   try {
+    console.log('[EMAIL] Attempting to send email to:', to);
     const info = await transporter.sendMail(mailOptions);
+    console.log('[EMAIL] Email sent successfully:', info.messageId);
     return info;
   } catch (err) {
     const details = err.response || err.message || String(err);
+    console.error('[EMAIL] Send failed:', {
+      code: err.code,
+      message: err.message,
+      response: err.response,
+    });
     throw new Error(`Email delivery failed. Check SMTP credentials and Gmail settings. ${details}`);
   }
 };
