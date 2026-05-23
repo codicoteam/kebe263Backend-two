@@ -20,6 +20,7 @@ const adminRoutes = require('./routes/admin.routes');
 const notificationRoutes = require('./routes/notification.routes');
 const searchRoutes = require('./routes/search.routes');
 const chatRoutes = require('./routes/chat.routes');
+const debugRoutes = require('./routes/debug.routes');
 
 const app = express();
 
@@ -128,6 +129,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/debug', debugRoutes);
 app.get('/', (req, res) => {
   res.json({
     success: true,
