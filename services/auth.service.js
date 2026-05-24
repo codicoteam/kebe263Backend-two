@@ -10,7 +10,7 @@ const saveAndSendOTP = async (user, purpose = 'verification') => {
   const otp = generateOTP();
   user.otp = otp;
   user.otpExpiry = new Date(Date.now() + OTP_EXPIRY_MS);
-  await user.save();
+  await user.save({ validateModifiedOnly: true });
 
   await sendEmail({
     to: user.email,
@@ -53,7 +53,7 @@ const verifyOtp = async ({ email, otp }) => {
   user.isVerified = true;
   user.otp = undefined;
   user.otpExpiry = undefined;
-  await user.save();
+  await user.save({ validateModifiedOnly: true });
 
   const token = generateToken({ id: user._id, isAdmin: user.isAdmin, roles: user.roles });
   return { token };
@@ -99,7 +99,7 @@ const resetPassword = async ({ email, otp, newPassword }) => {
   user.password = await bcrypt.hash(newPassword, 12);
   user.otp = undefined;
   user.otpExpiry = undefined;
-  await user.save();
+  await user.save({ validateModifiedOnly: true });
 
   return { message: 'Password reset successfully. You can now log in.' };
 };

@@ -35,9 +35,12 @@ const changeRole = async (userId, role) => {
     throw { status: 400, message: 'Admin users cannot change customer/serviceProvider roles' };
   }
 
-  user.roles = [role];
-  await user.save();
-  return user.toSafeObject();
+  const updated = await User.findByIdAndUpdate(
+    userId,
+    { roles: [role] },
+    { new: true, runValidators: false }
+  );
+  return updated.toSafeObject();
 };
 
 const changePassword = async (userId, { currentPassword, newPassword }) => {
@@ -50,7 +53,7 @@ const changePassword = async (userId, { currentPassword, newPassword }) => {
   if (newPassword.length < 8) throw { status: 400, message: 'New password must be at least 8 characters' };
 
   user.password = await bcrypt.hash(newPassword, 12);
-  await user.save();
+  await user.save({ validateModifiedOnly: true });
 };
 
 // Admin operations
