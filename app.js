@@ -110,7 +110,18 @@ const authLimiter = rateLimit({
 
 app.use(globalLimiter);
 
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { explorer: true }));
+app.use('/api-docs', swaggerUi.serve, (req, res, next) => {
+  const dynamicSpec = {
+    ...swaggerSpec,
+    servers: [
+      {
+        url: `${req.protocol}://${req.get('host')}`,
+        description: 'Current server',
+      },
+    ],
+  };
+  return swaggerUi.setup(dynamicSpec, { explorer: true })(req, res, next);
+});
 
 app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'kebe263 Super App API is running', timestamp: new Date().toISOString() });
