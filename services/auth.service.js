@@ -56,7 +56,7 @@ const verifyOtp = async ({ email, otp }) => {
   await user.save({ validateModifiedOnly: true });
 
   const token = generateToken({ id: user._id, isAdmin: user.isAdmin, roles: user.roles });
-  return { token };
+  return { token, user: user.toSafeObject() };
 };
 
 const login = async ({ email, password }) => {
