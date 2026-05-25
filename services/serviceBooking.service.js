@@ -152,6 +152,33 @@ const leaveReview = async (bookingId, customerId, { rating, comment }) => {
   return review;
 };
 
+const getMyBookings = async (providerId, { page = 1, limit = 20, status }) => {
+  const query = { provider: providerId };
+  if (status) query.status = status;
+  const skip = (Number(page) - 1) * Number(limit);
+  const [bookings, total] = await Promise.all([
+    ServiceBooking.find(query)
+      .populate('service', 'businessName category estimatedPrice currency priceUnit profileImage')
+      .populate('customer', 'firstName lastName phone email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit)),
+    ServiceBooking.countDocuments(query),
+  ]);
+  return { bookings, pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) } };
+};
+
+const updateProviderLocation = async (bookingId, providerId, { lat, lng }) => {
+  if (lat == null || lng == null) throw { status: 400, message: 'lat and lng are required' };
+  const booking = await ServiceBooking.findById(bookingId);
+  if (!booking) throw { status: 404, message: 'Booking not found' };
+  if (booking.provider.toString() !== providerId.toString()) throw { status: 403, message: 'Not your booking' };
+  if (booking.status !== 'inProgress') throw { status: 400, message: 'Location tracking only available when inProgress' };
+  booking.providerLocation = { lat, lng, updatedAt: new Date() };
+  await booking.save();
+  return { lat, lng, updatedAt: booking.providerLocation.updatedAt };
+};
+
 const adminGetAllBookings = async ({ page = 1, limit = 20, status }) => {
   const query = {};
   if (status) query.status = status;
@@ -169,7 +196,37 @@ const adminGetAllBookings = async ({ page = 1, limit = 20, status }) => {
   return { bookings, pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) } };
 };
 
+const getBookingById = async (bookingId, userId) => {
+  const booking = await ServiceBooking.findById(bookingId)
+    .populate('service', 'businessName category estimatedPrice currency priceUnit profileImage')
+    .populate('customer', 'firstName lastName phone email')
+    .populate('provider', 'firstName lastName phone email');
+  if (!booking) throw { status: 404, message: 'Booking not found' };
+  const isParty =
+    booking.customer._id.toString() === userId.toString() ||
+    booking.provider._id.toString() === userId.toString();
+  if (!isParty) throw { status: 403, message: 'Not your booking' };
+  return { booking };
+};
+
+const getCustomerBookings = async (customerId, { page = 1, limit = 20, status }) => {
+  const query = { customer: customerId };
+  if (status) query.status = status;
+  const skip = (Number(page) - 1) * Number(limit);
+  const [bookings, total] = await Promise.all([
+    ServiceBooking.find(query)
+      .populate('service', 'businessName category estimatedPrice currency priceUnit profileImage')
+      .populate('provider', 'firstName lastName phone email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit)),
+    ServiceBooking.countDocuments(query),
+  ]);
+  return { bookings, pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) } };
+};
+
 module.exports = {
   createBooking, acceptBooking, startBooking, completeBooking,
   cancelBooking, leaveReview, adminGetAllBookings,
+  getMyBookings, updateProviderLocation, getCustomerBookings, getBookingById,
 };

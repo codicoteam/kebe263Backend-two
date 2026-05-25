@@ -36,6 +36,20 @@ const leaveReview = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const getMyBookings = async (req, res, next) => {
+  try {
+    const result = await serviceBookingService.getMyBookings(req.user._id, req.query);
+    return success(res, 'Your bookings fetched successfully', result);
+  } catch (err) { next(err); }
+};
+
+const updateLocation = async (req, res, next) => {
+  try {
+    const loc = await serviceBookingService.updateProviderLocation(req.params.id, req.user._id, req.body);
+    return success(res, 'Location updated', loc);
+  } catch (err) { next(err); }
+};
+
 const adminGetAllBookings = async (req, res, next) => {
   try {
     const result = await serviceBookingService.adminGetAllBookings(req.query);
@@ -43,4 +57,22 @@ const adminGetAllBookings = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { acceptBooking, startBooking, completeBooking, cancelBooking, leaveReview, adminGetAllBookings };
+const getBookingById = async (req, res, next) => {
+  try {
+    const result = await serviceBookingService.getBookingById(req.params.id, req.user._id);
+    return success(res, 'Booking fetched', result);
+  } catch (err) { next(err); }
+};
+
+const getCustomerBookings = async (req, res, next) => {
+  try {
+    const result = await serviceBookingService.getCustomerBookings(req.user._id, req.query);
+    return success(res, 'Your bookings fetched successfully', result);
+  } catch (err) { next(err); }
+};
+
+module.exports = {
+  acceptBooking, startBooking, completeBooking, cancelBooking,
+  leaveReview, getMyBookings, updateLocation, adminGetAllBookings,
+  getCustomerBookings, getBookingById,
+};

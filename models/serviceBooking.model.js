@@ -25,6 +25,11 @@ const serviceBookingSchema = new mongoose.Schema(
     refundStatus: { type: String, enum: ['none', 'requested', 'refunded'], default: 'none' },
     refundReason: { type: String, default: null },
     refundedAt: { type: Date, default: null },
+    providerLocation: {
+      lat: { type: Number, default: null },
+      lng: { type: Number, default: null },
+      updatedAt: { type: Date, default: null },
+    },
   },
   { timestamps: true }
 );

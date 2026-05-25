@@ -12,6 +12,12 @@ const isServiceProvider = require('../middleware/isServiceProvider');
  *   description: Service booking lifecycle and reviews
  */
 
+// ─── Provider: my bookings (static before /:id) ──────────────────────────────
+router.get('/mine', authenticate, isServiceProvider, serviceBookingController.getMyBookings);
+
+// ─── Customer: my bookings (static before /:id) ──────────────────────────────
+router.get('/customer-mine', authenticate, serviceBookingController.getCustomerBookings);
+
 // ─── Admin (static before /:id) ───────────────────────────────────────────────
 
 /**
@@ -196,5 +202,11 @@ router.put('/:id/cancel', authenticate, serviceBookingController.cancelBooking);
  *         description: Review already submitted for this booking
  */
 router.post('/:id/review', authenticate, serviceBookingController.leaveReview);
+
+// ─── Booking detail (customer polls for SP location) ─────────────────────────
+router.get('/:id', authenticate, serviceBookingController.getBookingById);
+
+// ─── Provider location update (inProgress only) ───────────────────────────────
+router.put('/:id/location', authenticate, isServiceProvider, serviceBookingController.updateLocation);
 
 module.exports = router;
