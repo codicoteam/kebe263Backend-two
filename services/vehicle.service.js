@@ -1,7 +1,8 @@
 const Vehicle = require('../models/vehicle.model');
 
 const createVehicle = async (ownerId, data) => {
-  const { make, model, year, color, plateNumber, type, pricePerKm, currency, images, capacityKg, capacityPassengers } = data;
+  const { make, model, year, color, plateNumber, type, pricePerKm, currency, images, capacityKg, capacityPassengers,
+    ownerFullName, ownerIdNumber, driverLicenceFront, driverLicenceBack, nationalIdImage } = data;
   if (!make || !model || !year || !color || !plateNumber || !type || !pricePerKm) {
     throw { status: 400, message: 'make, model, year, color, plateNumber, type, and pricePerKm are required' };
   }
@@ -20,6 +21,11 @@ const createVehicle = async (ownerId, data) => {
     pricePerKm,
     currency: currency || 'USD',
     images: images || [],
+    ownerFullName: ownerFullName || null,
+    ownerIdNumber: ownerIdNumber || null,
+    driverLicenceFront: driverLicenceFront || null,
+    driverLicenceBack: driverLicenceBack || null,
+    nationalIdImage: nationalIdImage || null,
   });
 };
 
@@ -30,7 +36,9 @@ const updateVehicle = async (vehicleId, ownerId, data) => {
     throw { status: 403, message: 'You can only edit your own vehicles' };
   }
 
-  const allowed = ['make', 'model', 'year', 'color', 'plateNumber', 'type', 'capacityKg', 'capacityPassengers', 'pricePerKm', 'currency', 'images', 'isAvailable'];
+  const allowed = ['make', 'model', 'year', 'color', 'plateNumber', 'type', 'capacityKg', 'capacityPassengers',
+    'pricePerKm', 'currency', 'images', 'isAvailable',
+    'ownerFullName', 'ownerIdNumber', 'driverLicenceFront', 'driverLicenceBack', 'nationalIdImage'];
   for (const key of allowed) {
     if (data[key] !== undefined) vehicle[key] = data[key];
   }

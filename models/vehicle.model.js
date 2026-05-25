@@ -20,6 +20,11 @@ const vehicleSchema = new mongoose.Schema(
     pricePerKm: { type: Number, required: [true, 'Price per km is required'] },
     currency: { type: String, enum: ['USD', 'ZWG'], default: 'USD' },
     images: [{ type: String }],
+    ownerFullName: { type: String, trim: true, default: null },
+    ownerIdNumber: { type: String, trim: true, default: null },
+    driverLicenceFront: { type: String, default: null },
+    driverLicenceBack: { type: String, default: null },
+    nationalIdImage: { type: String, default: null },
     isAvailable: { type: Boolean, default: true },
     isApproved: { type: Boolean, default: false },
     currentLocation: {
