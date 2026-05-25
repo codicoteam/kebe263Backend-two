@@ -12,6 +12,12 @@ const isServiceProvider = require('../middleware/isServiceProvider');
  *   description: Vehicle booking lifecycle management
  */
 
+// ─── Owner: my ride bookings ──────────────────────────────────────────────────
+router.get('/mine', authenticate, isServiceProvider, vehicleBookingController.getOwnerBookings);
+
+// ─── Booking detail (parties only) ───────────────────────────────────────────
+router.get('/:id', authenticate, vehicleBookingController.getBookingById);
+
 // ─── Admin (static before /:id) ───────────────────────────────────────────────
 
 /**

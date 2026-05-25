@@ -190,4 +190,33 @@ const adminGetAllBookings = async ({ page = 1, limit = 20, status }) => {
   return { bookings, pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) } };
 };
 
-module.exports = { createBooking, acceptBooking, startRide, completeBooking, cancelBooking, adminGetAllBookings };
+const getOwnerBookings = async (ownerId, { page = 1, limit = 20, status }) => {
+  const query = { owner: ownerId };
+  if (status) query.status = status;
+  const skip = (Number(page) - 1) * Number(limit);
+  const [bookings, total] = await Promise.all([
+    VehicleBooking.find(query)
+      .populate('vehicle', 'make model year color plateNumber type pricePerKm currency images')
+      .populate('customer', 'firstName lastName phone email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit)),
+    VehicleBooking.countDocuments(query),
+  ]);
+  return { bookings, pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) } };
+};
+
+const getBookingById = async (bookingId, userId) => {
+  const booking = await VehicleBooking.findById(bookingId)
+    .populate('vehicle', 'make model year color plateNumber type pricePerKm currency images currentLocation')
+    .populate('customer', 'firstName lastName phone email')
+    .populate('owner', 'firstName lastName phone email');
+  if (!booking) throw { status: 404, message: 'Booking not found' };
+  const isParty =
+    booking.customer._id.toString() === userId.toString() ||
+    booking.owner._id.toString() === userId.toString();
+  if (!isParty) throw { status: 403, message: 'Not your booking' };
+  return { booking };
+};
+
+module.exports = { createBooking, acceptBooking, startRide, completeBooking, cancelBooking, adminGetAllBookings, getOwnerBookings, getBookingById };

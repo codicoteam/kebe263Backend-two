@@ -1,6 +1,7 @@
 const { Paynow } = require('paynow');
 const ServiceProvider = require('../models/serviceProvider.model');
 const AppConfig = require('../models/appConfig.model');
+const { getConfig } = require('../utils/configCache');
 
 const getPaynow = () =>
   new Paynow(

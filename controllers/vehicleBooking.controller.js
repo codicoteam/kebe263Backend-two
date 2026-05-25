@@ -36,4 +36,18 @@ const adminGetAllBookings = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { acceptBooking, startRide, completeBooking, cancelBooking, adminGetAllBookings };
+const getOwnerBookings = async (req, res, next) => {
+  try {
+    const result = await vehicleBookingService.getOwnerBookings(req.user._id, req.query);
+    return success(res, 'Your ride bookings fetched successfully', result);
+  } catch (err) { next(err); }
+};
+
+const getBookingById = async (req, res, next) => {
+  try {
+    const result = await vehicleBookingService.getBookingById(req.params.id, req.user._id);
+    return success(res, 'Booking fetched', result);
+  } catch (err) { next(err); }
+};
+
+module.exports = { acceptBooking, startRide, completeBooking, cancelBooking, adminGetAllBookings, getOwnerBookings, getBookingById };

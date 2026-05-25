@@ -5,6 +5,8 @@ const createVehicle = async (ownerId, data) => {
   if (!make || !model || !year || !color || !plateNumber || !type || !pricePerKm) {
     throw { status: 400, message: 'make, model, year, color, plateNumber, type, and pricePerKm are required' };
   }
+  const existing = await Vehicle.findOne({ owner: ownerId });
+  if (existing) throw { status: 409, message: 'You already have a vehicle listed. Edit it instead of creating a new one.' };
   return Vehicle.create({
     owner: ownerId,
     make,
