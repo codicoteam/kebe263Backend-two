@@ -429,11 +429,18 @@ router.post('/:id/pay-deposit', authenticate, isServiceProvider, serviceProvider
  *               currency: { type: string, enum: [USD, ZWG], default: USD }
  *               description: { type: string, example: "Need full house cleaning, 3 bedrooms" }
  *               scheduledDate: { type: string, format: date-time }
+ *               serviceType:
+ *                 type: string
+ *                 enum: [provider_comes_to_me, i_go_to_provider]
+ *                 default: provider_comes_to_me
+ *                 description: Whether provider travels to customer or customer goes to provider
  *               location:
  *                 type: object
  *                 properties:
  *                   address: { type: string }
  *                   city: { type: string }
+ *                   lat: { type: number, description: "Customer latitude (required when serviceType is provider_comes_to_me)" }
+ *                   lng: { type: number, description: "Customer longitude (required when serviceType is provider_comes_to_me)" }
  *     responses:
  *       201:
  *         description: Booking request sent to provider

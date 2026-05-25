@@ -15,6 +15,8 @@ const vehicleSchema = new mongoose.Schema(
       trim: true,
     },
     type: { type: String, required: true },
+    capacityKg: { type: Number, default: null },
+    capacityPassengers: { type: Number, default: null },
     pricePerKm: { type: Number, required: [true, 'Price per km is required'] },
     currency: { type: String, enum: ['USD', 'ZWG'], default: 'USD' },
     images: [{ type: String }],

@@ -14,7 +14,7 @@ const getOrCreateWallet = async (userId, currency = 'USD') => {
 };
 
 const createBooking = async (customerId, serviceId, data) => {
-  const { description, scheduledDate, location, agreedPrice, currency } = data;
+  const { description, scheduledDate, location, agreedPrice, currency, serviceType } = data;
   if (!agreedPrice) throw { status: 400, message: 'agreedPrice is required' };
 
   const service = await ServiceProvider.findById(serviceId);
@@ -28,6 +28,7 @@ const createBooking = async (customerId, serviceId, data) => {
     description: description || null,
     scheduledDate: scheduledDate || null,
     location: location || {},
+    serviceType: serviceType || 'provider_comes_to_me',
     agreedPrice,
     currency: currency || service.currency,
     status: 'pending',

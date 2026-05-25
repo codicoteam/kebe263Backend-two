@@ -190,6 +190,22 @@ const adminGetAllBookings = async ({ page = 1, limit = 20, status }) => {
   return { bookings, pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) } };
 };
 
+const getCustomerBookings = async (customerId, { page = 1, limit = 20, status }) => {
+  const query = { customer: customerId };
+  if (status) query.status = status;
+  const skip = (Number(page) - 1) * Number(limit);
+  const [bookings, total] = await Promise.all([
+    VehicleBooking.find(query)
+      .populate('vehicle', 'make model year color plateNumber type images pricePerKm currency currentLocation')
+      .populate('owner', 'firstName lastName phone')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit)),
+    VehicleBooking.countDocuments(query),
+  ]);
+  return { bookings, pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) } };
+};
+
 const getOwnerBookings = async (ownerId, { page = 1, limit = 20, status }) => {
   const query = { owner: ownerId };
   if (status) query.status = status;
@@ -219,4 +235,4 @@ const getBookingById = async (bookingId, userId) => {
   return { booking };
 };
 
-module.exports = { createBooking, acceptBooking, startRide, completeBooking, cancelBooking, adminGetAllBookings, getOwnerBookings, getBookingById };
+module.exports = { createBooking, acceptBooking, startRide, completeBooking, cancelBooking, adminGetAllBookings, getOwnerBookings, getBookingById, getCustomerBookings };

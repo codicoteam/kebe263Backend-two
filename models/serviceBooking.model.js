@@ -10,6 +10,13 @@ const serviceBookingSchema = new mongoose.Schema(
     location: {
       address: { type: String, default: null },
       city: { type: String, default: null },
+      lat: { type: Number, default: null },
+      lng: { type: Number, default: null },
+    },
+    serviceType: {
+      type: String,
+      enum: ['provider_comes_to_me', 'i_go_to_provider'],
+      default: 'provider_comes_to_me',
     },
     status: {
       type: String,

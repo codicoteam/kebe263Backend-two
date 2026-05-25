@@ -50,4 +50,11 @@ const getBookingById = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { acceptBooking, startRide, completeBooking, cancelBooking, adminGetAllBookings, getOwnerBookings, getBookingById };
+const getCustomerBookings = async (req, res, next) => {
+  try {
+    const result = await vehicleBookingService.getCustomerBookings(req.user._id, req.query);
+    return success(res, 'Your ride bookings fetched', result);
+  } catch (err) { next(err); }
+};
+
+module.exports = { acceptBooking, startRide, completeBooking, cancelBooking, adminGetAllBookings, getOwnerBookings, getBookingById, getCustomerBookings };
