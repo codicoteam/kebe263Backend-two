@@ -31,12 +31,22 @@ const vehicleSchema = new mongoose.Schema(
       lat: { type: Number, default: null },
       lng: { type: Number, default: null },
       updatedAt: { type: Date, default: null },
-      type: { type: String, default: 'Point' },
+      type: { type: String, default: null }, // set to 'Point' only when real coordinates arrive
       coordinates: { type: [Number], default: undefined }, // [lng, lat] — set by socket driver:updateLocation
     },
   },
   { timestamps: true }
 );
+
+// Strip currentLocation when coordinates are absent so the sparse 2dsphere
+// index skips this document entirely (sparse only works on missing fields,
+// not on fields present-but-invalid).
+vehicleSchema.pre('save', function (next) {
+  if (!this.currentLocation?.coordinates?.length) {
+    this.set('currentLocation', undefined);
+  }
+  next();
+});
 
 vehicleSchema.index({ type: 1, isApproved: 1, isAvailable: 1 });
 vehicleSchema.index({ currentLocation: '2dsphere' }, { sparse: true });
