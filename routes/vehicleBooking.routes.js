@@ -164,4 +164,8 @@ router.put('/:id/complete', authenticate, isServiceProvider, vehicleBookingContr
  */
 router.put('/:id/cancel', authenticate, vehicleBookingController.cancelBooking);
 
+router.put('/:id/counter-offer', authenticate, isServiceProvider, vehicleBookingController.counterOffer);
+router.put('/:id/accept-counter', authenticate, vehicleBookingController.acceptCounter);
+router.put('/:id/reject-counter', authenticate, vehicleBookingController.rejectCounter);
+
 module.exports = router;

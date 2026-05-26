@@ -29,6 +29,11 @@ const vehicleBookingSchema = new mongoose.Schema(
     refundStatus: { type: String, enum: ['none', 'requested', 'refunded'], default: 'none' },
     refundReason: { type: String, default: null },
     refundedAt: { type: Date, default: null },
+    transportReason: { type: String, default: null },
+    transportItems: { type: String, default: null },
+    customerOfferedPrice: { type: Number, default: 0 },
+    ownerCounterPrice: { type: Number, default: null },
+    priceStatus: { type: String, enum: ['customerOffer', 'counterOffered', 'agreed'], default: 'customerOffer' },
   },
   { timestamps: true }
 );

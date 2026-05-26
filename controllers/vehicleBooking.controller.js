@@ -57,4 +57,25 @@ const getCustomerBookings = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { acceptBooking, startRide, completeBooking, cancelBooking, adminGetAllBookings, getOwnerBookings, getBookingById, getCustomerBookings };
+const counterOffer = async (req, res, next) => {
+  try {
+    const booking = await vehicleBookingService.counterOffer(req.params.id, req.user._id, Number(req.body.counterPrice));
+    return success(res, 'Counter offer sent to customer', { booking });
+  } catch (err) { next(err); }
+};
+
+const acceptCounter = async (req, res, next) => {
+  try {
+    const booking = await vehicleBookingService.acceptCounter(req.params.id, req.user._id);
+    return success(res, 'Counter offer accepted', { booking });
+  } catch (err) { next(err); }
+};
+
+const rejectCounter = async (req, res, next) => {
+  try {
+    const booking = await vehicleBookingService.rejectCounter(req.params.id, req.user._id);
+    return success(res, 'Counter offer declined', { booking });
+  } catch (err) { next(err); }
+};
+
+module.exports = { acceptBooking, counterOffer, acceptCounter, rejectCounter, startRide, completeBooking, cancelBooking, adminGetAllBookings, getOwnerBookings, getBookingById, getCustomerBookings };

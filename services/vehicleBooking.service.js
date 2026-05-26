@@ -59,7 +59,7 @@ const releaseReservedPlatformFee = async (booking) => {
 };
 
 const createBooking = async (customerId, vehicleId, data) => {
-  const { pickupLocation, dropoffLocation, agreedPrice, currency } = data;
+  const { pickupLocation, dropoffLocation, agreedPrice, currency, transportReason, transportItems } = data;
   if (!pickupLocation || !dropoffLocation || agreedPrice == null) {
     throw { status: 400, message: 'pickupLocation, dropoffLocation, and agreedPrice are required' };
   }
@@ -75,11 +75,15 @@ const createBooking = async (customerId, vehicleId, data) => {
     pickupLocation,
     dropoffLocation,
     agreedPrice,
+    customerOfferedPrice: agreedPrice,
     currency: currency || vehicle.currency,
     status: 'pending',
+    priceStatus: 'customerOffer',
+    transportReason: transportReason || null,
+    transportItems: transportItems || null,
   });
 
-  notify(vehicle.owner, 'New Booking Request', `You have a new vehicle booking request. Agreed price: ${agreedPrice}`, 'booking');
+  notify(vehicle.owner, 'New Booking Request', `You have a new vehicle booking request. Customer offered: ${agreedPrice}`, 'booking');
   chatService.createOrGetRoomForBooking('vehicle', booking._id.toString(), [customerId.toString(), vehicle.owner.toString()]).catch(() => {});
 
   return booking.populate([
@@ -94,15 +98,66 @@ const acceptBooking = async (bookingId, ownerId) => {
   if (!booking) throw { status: 404, message: 'Booking not found' };
   if (booking.owner.toString() !== ownerId.toString()) throw { status: 403, message: 'Not your booking' };
   if (booking.status !== 'pending') throw { status: 400, message: `Cannot accept a booking with status: ${booking.status}` };
+  if (booking.priceStatus === 'counterOffered') throw { status: 400, message: 'A counter offer is pending. Customer must accept or decline first.' };
 
   const feePercent = Number(await getConfig('platformFeePercent', process.env.PLATFORM_FEE_PERCENT || '10'));
   const wallet = await getOrCreateWallet(booking.owner, booking.currency);
   await reservePlatformFee(booking, wallet, feePercent);
 
   booking.status = 'accepted';
+  booking.priceStatus = 'agreed';
   await booking.save();
 
   notify(booking.customer, 'Booking Accepted', 'Your vehicle booking has been accepted. The driver is on the way.', 'booking');
+  return booking;
+};
+
+const counterOffer = async (bookingId, ownerId, counterPrice) => {
+  const booking = await VehicleBooking.findById(bookingId);
+  if (!booking) throw { status: 404, message: 'Booking not found' };
+  if (booking.owner.toString() !== ownerId.toString()) throw { status: 403, message: 'Not your booking' };
+  if (booking.status !== 'pending') throw { status: 400, message: `Cannot counter offer a booking with status: ${booking.status}` };
+  if (!counterPrice || counterPrice <= 0) throw { status: 400, message: 'Counter price must be a positive number' };
+
+  booking.ownerCounterPrice = counterPrice;
+  booking.priceStatus = 'counterOffered';
+  await booking.save();
+
+  notify(booking.customer, 'Driver Proposed a New Price', `Driver proposed ${booking.currency} ${counterPrice.toFixed(2)} — accept or decline`, 'booking');
+  return booking;
+};
+
+const acceptCounter = async (bookingId, customerId) => {
+  const booking = await VehicleBooking.findById(bookingId);
+  if (!booking) throw { status: 404, message: 'Booking not found' };
+  if (booking.customer.toString() !== customerId.toString()) throw { status: 403, message: 'Not your booking' };
+  if (booking.priceStatus !== 'counterOffered') throw { status: 400, message: 'No counter offer to accept' };
+
+  booking.agreedPrice = booking.ownerCounterPrice;
+  booking.priceStatus = 'agreed';
+  booking.status = 'accepted';
+
+  const feePercent = Number(await getConfig('platformFeePercent', process.env.PLATFORM_FEE_PERCENT || '10'));
+  const wallet = await getOrCreateWallet(booking.owner, booking.currency);
+  await reservePlatformFee(booking, wallet, feePercent);
+
+  await booking.save();
+
+  notify(booking.owner, 'Counter Offer Accepted', 'Customer accepted your counter offer. Proceed to pickup.', 'booking');
+  return booking;
+};
+
+const rejectCounter = async (bookingId, customerId) => {
+  const booking = await VehicleBooking.findById(bookingId);
+  if (!booking) throw { status: 404, message: 'Booking not found' };
+  if (booking.customer.toString() !== customerId.toString()) throw { status: 403, message: 'Not your booking' };
+  if (booking.priceStatus !== 'counterOffered') throw { status: 400, message: 'No counter offer to reject' };
+
+  booking.status = 'cancelled';
+  booking.priceStatus = 'customerOffer';
+  await booking.save();
+
+  notify(booking.owner, 'Counter Offer Declined', 'Customer declined your counter offer.', 'booking');
   return booking;
 };
 
@@ -235,4 +290,4 @@ const getBookingById = async (bookingId, userId) => {
   return { booking };
 };
 
-module.exports = { createBooking, acceptBooking, startRide, completeBooking, cancelBooking, adminGetAllBookings, getOwnerBookings, getBookingById, getCustomerBookings };
+module.exports = { createBooking, acceptBooking, counterOffer, acceptCounter, rejectCounter, startRide, completeBooking, cancelBooking, adminGetAllBookings, getOwnerBookings, getBookingById, getCustomerBookings };
