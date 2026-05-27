@@ -290,4 +290,89 @@ const getBookingById = async (bookingId, userId) => {
   return { booking };
 };
 
-module.exports = { createBooking, acceptBooking, counterOffer, acceptCounter, rejectCounter, startRide, completeBooking, cancelBooking, adminGetAllBookings, getOwnerBookings, getBookingById, getCustomerBookings };
+const createOpenRideRequest = async (customerId, data) => {
+  const { pickupLocation, dropoffLocation, offeredPrice, currency, vehicleType, transportReason, transportItems } = data;
+  if (!pickupLocation || !dropoffLocation || offeredPrice == null) {
+    throw { status: 400, message: 'pickupLocation, dropoffLocation, and offeredPrice are required' };
+  }
+
+  const booking = await VehicleBooking.create({
+    vehicle: null,
+    customer: customerId,
+    owner: null,
+    pickupLocation,
+    dropoffLocation,
+    agreedPrice: offeredPrice,
+    customerOfferedPrice: offeredPrice,
+    currency: currency || 'USD',
+    status: 'pending',
+    priceStatus: 'customerOffer',
+    requestType: 'open',
+    vehicleType: vehicleType || null,
+    transportReason: transportReason || null,
+    transportItems: transportItems || null,
+  });
+
+  return booking.populate({ path: 'customer', select: 'firstName lastName phone' });
+};
+
+const getOpenRideRequests = async (ownerId, query) => {
+  const { page = 1, limit = 20 } = query;
+
+  const spVehicle = await Vehicle.findOne({ owner: ownerId, isApproved: true });
+
+  const q = { requestType: 'open', status: 'pending', owner: null };
+  if (spVehicle) {
+    q.$or = [{ vehicleType: spVehicle.type }, { vehicleType: null }];
+  }
+
+  const skip = (Number(page) - 1) * Number(limit);
+  const [bookings, total] = await Promise.all([
+    VehicleBooking.find(q)
+      .populate('customer', 'firstName lastName phone')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit)),
+    VehicleBooking.countDocuments(q),
+  ]);
+  return { bookings, pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) } };
+};
+
+const claimOpenRideRequest = async (bookingId, ownerId) => {
+  const booking = await VehicleBooking.findById(bookingId);
+  if (!booking) throw { status: 404, message: 'Booking not found' };
+  if (booking.requestType !== 'open') throw { status: 400, message: 'This booking is not an open request' };
+  if (booking.status !== 'pending' || booking.owner != null) {
+    throw { status: 409, message: 'This request has already been claimed or is no longer available' };
+  }
+
+  const vehicle = await Vehicle.findOne({ owner: ownerId, isApproved: true });
+  if (!vehicle) throw { status: 404, message: 'You do not have an approved vehicle' };
+  if (!vehicle.isAvailable) throw { status: 409, message: 'Your vehicle is currently unavailable' };
+
+  if (booking.vehicleType && booking.vehicleType !== vehicle.type) {
+    throw { status: 400, message: `This request requires a ${booking.vehicleType}` };
+  }
+
+  booking.vehicle = vehicle._id;
+  booking.owner = ownerId;
+  booking.status = 'accepted';
+  booking.priceStatus = 'agreed';
+
+  const feePercent = Number(await getConfig('platformFeePercent', process.env.PLATFORM_FEE_PERCENT || '10'));
+  const wallet = await getOrCreateWallet(ownerId, booking.currency);
+  await reservePlatformFee(booking, wallet, feePercent);
+
+  await booking.save();
+
+  notify(booking.customer, 'Ride Accepted!', 'A driver has accepted your ride request.', 'booking');
+  chatService.createOrGetRoomForBooking('vehicle', booking._id.toString(), [booking.customer.toString(), ownerId.toString()]).catch(() => {});
+
+  return booking.populate([
+    { path: 'vehicle', select: 'make model year color plateNumber type' },
+    { path: 'customer', select: 'firstName lastName phone' },
+    { path: 'owner', select: 'firstName lastName phone' },
+  ]);
+};
+
+module.exports = { createBooking, createOpenRideRequest, getOpenRideRequests, claimOpenRideRequest, acceptBooking, counterOffer, acceptCounter, rejectCounter, startRide, completeBooking, cancelBooking, adminGetAllBookings, getOwnerBookings, getBookingById, getCustomerBookings };

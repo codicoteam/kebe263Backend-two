@@ -78,4 +78,25 @@ const rejectCounter = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { acceptBooking, counterOffer, acceptCounter, rejectCounter, startRide, completeBooking, cancelBooking, adminGetAllBookings, getOwnerBookings, getBookingById, getCustomerBookings };
+const createOpenRideRequest = async (req, res, next) => {
+  try {
+    const booking = await vehicleBookingService.createOpenRideRequest(req.user._id, req.body);
+    return success(res, 'Ride request broadcast to vehicle owners', { booking });
+  } catch (err) { next(err); }
+};
+
+const getOpenRideRequests = async (req, res, next) => {
+  try {
+    const result = await vehicleBookingService.getOpenRideRequests(req.user._id, req.query);
+    return success(res, 'Open ride requests fetched', result);
+  } catch (err) { next(err); }
+};
+
+const claimOpenRideRequest = async (req, res, next) => {
+  try {
+    const booking = await vehicleBookingService.claimOpenRideRequest(req.params.id, req.user._id);
+    return success(res, 'Ride request claimed and accepted', { booking });
+  } catch (err) { next(err); }
+};
+
+module.exports = { acceptBooking, counterOffer, acceptCounter, rejectCounter, startRide, completeBooking, cancelBooking, adminGetAllBookings, getOwnerBookings, getBookingById, getCustomerBookings, createOpenRideRequest, getOpenRideRequests, claimOpenRideRequest };

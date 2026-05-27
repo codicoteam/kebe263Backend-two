@@ -2,9 +2,11 @@ const mongoose = require('mongoose');
 
 const vehicleBookingSchema = new mongoose.Schema(
   {
-    vehicle: { type: mongoose.Schema.Types.ObjectId, ref: 'Vehicle', required: true },
+    vehicle: { type: mongoose.Schema.Types.ObjectId, ref: 'Vehicle', default: null },
     customer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    requestType: { type: String, enum: ['direct', 'open'], default: 'direct' },
+    vehicleType: { type: String, default: null },
     pickupLocation: {
       address: { type: String, default: null },
       lat: { type: Number, default: null },

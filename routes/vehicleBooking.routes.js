@@ -18,6 +18,11 @@ router.get('/mine', authenticate, isServiceProvider, vehicleBookingController.ge
 // ─── Customer: my ride bookings ───────────────────────────────────────────────
 router.get('/customer-mine', authenticate, vehicleBookingController.getCustomerBookings);
 
+// ─── Open ride requests (broadcast) ──────────────────────────────────────────
+router.post('/open-request', authenticate, vehicleBookingController.createOpenRideRequest);
+router.get('/open-requests', authenticate, isServiceProvider, vehicleBookingController.getOpenRideRequests);
+router.put('/:id/claim', authenticate, isServiceProvider, vehicleBookingController.claimOpenRideRequest);
+
 // ─── Booking detail (parties only) ───────────────────────────────────────────
 router.get('/:id', authenticate, vehicleBookingController.getBookingById);
 
