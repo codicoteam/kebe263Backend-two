@@ -319,7 +319,7 @@ const createOpenRideRequest = async (customerId, data) => {
 const getOpenRideRequests = async (ownerId, query) => {
   const { page = 1, limit = 20 } = query;
 
-  const spVehicle = await Vehicle.findOne({ owner: ownerId, isApproved: true });
+  const spVehicle = await Vehicle.findOne({ owner: ownerId });
 
   const q = { requestType: 'open', status: 'pending', owner: null };
   if (spVehicle) {
@@ -346,8 +346,8 @@ const claimOpenRideRequest = async (bookingId, ownerId) => {
     throw { status: 409, message: 'This request has already been claimed or is no longer available' };
   }
 
-  const vehicle = await Vehicle.findOne({ owner: ownerId, isApproved: true });
-  if (!vehicle) throw { status: 404, message: 'You do not have an approved vehicle' };
+  const vehicle = await Vehicle.findOne({ owner: ownerId });
+  if (!vehicle) throw { status: 404, message: 'You do not have a registered vehicle' };
   if (!vehicle.isAvailable) throw { status: 409, message: 'Your vehicle is currently unavailable' };
 
   if (booking.vehicleType && booking.vehicleType !== vehicle.type) {
