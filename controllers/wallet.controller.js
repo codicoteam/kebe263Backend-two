@@ -36,4 +36,11 @@ const adminGetAllWallets = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { getMyWallet, deposit, paynowResult, getTransactions, adminGetAllWallets };
+const transactionStatus = async (req, res, next) => {
+  try {
+    const result = await walletService.getTransactionStatus(req.user._id, req.params.reference);
+    return success(res, 'Transaction status', result);
+  } catch (err) { next(err); }
+};
+
+module.exports = { getMyWallet, deposit, paynowResult, getTransactions, adminGetAllWallets, transactionStatus };

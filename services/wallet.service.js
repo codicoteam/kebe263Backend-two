@@ -109,4 +109,11 @@ const adminGetAllWallets = async ({ page = 1, limit = 20 }) => {
   return { wallets, pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) } };
 };
 
-module.exports = { getMyWallet, depositViaPayNow, handlePaynowDeposit, getTransactions, adminGetAllWallets };
+const getTransactionStatus = async (userId, reference) => {
+  const wallet = await Wallet.findOne({ owner: userId });
+  if (!wallet) return { status: 'pending' };
+  const txn = await WalletTransaction.findOne({ wallet: wallet._id, reference });
+  return { status: txn?.status || 'pending' };
+};
+
+module.exports = { getMyWallet, depositViaPayNow, handlePaynowDeposit, getTransactions, adminGetAllWallets, getTransactionStatus };

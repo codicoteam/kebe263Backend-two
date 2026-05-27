@@ -145,4 +145,6 @@ router.post('/deposit', authenticate, walletController.deposit);
  */
 router.get('/transactions', authenticate, walletController.getTransactions);
 
+router.get('/transaction-status/:reference', authenticate, walletController.transactionStatus);
+
 module.exports = router;
