@@ -188,6 +188,12 @@ const payDeposit = async (serviceId, owner, { phone, method = 'ecocash' }) => {
     throw { status: 502, message: resp?.error || 'Payment initiation failed. Please try again.' };
   }
 
+  // Persist pollUrl so status endpoint can query PayNow directly
+  if (resp.pollUrl) {
+    service.depositPollUrl = resp.pollUrl;
+    await service.save();
+  }
+
   return {
     reference,
     pollUrl: resp.pollUrl || null,
@@ -196,6 +202,28 @@ const payDeposit = async (serviceId, owner, { phone, method = 'ecocash' }) => {
     amount: DEPOSIT_FEE,
     currency: 'USD',
   };
+};
+
+const checkDepositStatus = async (ownerId, reference) => {
+  const service = await ServiceProvider.findOne({ depositReference: reference, owner: ownerId });
+  if (!service) return { status: 'pending', depositPaid: false };
+  if (service.depositPaid) return { status: 'paid', depositPaid: true };
+
+  // Still pending — poll PayNow directly if we have the URL
+  if (service.depositPollUrl) {
+    try {
+      const paynow = getPaynow();
+      const statusResp = await paynow.pollTransaction(service.depositPollUrl);
+      if (statusResp && statusResp.paid()) {
+        service.depositPaid = true;
+        await service.save();
+        notify(service.owner, 'Deposit Received', `Your deposit for "${service.businessName}" has been received. Pending admin approval.`, 'deposit');
+        return { status: 'paid', depositPaid: true };
+      }
+    } catch (_) { /* network glitch — return pending */ }
+  }
+
+  return { status: 'pending', depositPaid: false };
 };
 
 const handleDepositWebhook = async (rawBody) => {
@@ -241,6 +269,6 @@ const adminGetAllServices = async ({ page = 1, limit = 20, isApproved, category,
 module.exports = {
   createService, updateService, deleteService, getMyServices,
   listServices, nearbySearch, getServiceById,
-  payDeposit, handleDepositWebhook,
+  payDeposit, handleDepositWebhook, checkDepositStatus,
   approveService, adminGetAllServices,
 };

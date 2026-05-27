@@ -6,6 +6,7 @@ const propertyBookingSchema = new mongoose.Schema(
     customer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     paymentStatus: { type: String, enum: ['pending', 'paid'], default: 'pending' },
     paymentReference: { type: String, default: null },
+    pollUrl: { type: String, default: null },
     amountPaid: { type: Number, default: 0 },
     refundStatus: { type: String, enum: ['none', 'requested', 'refunded'], default: 'none' },
     refundReason: { type: String, default: null },

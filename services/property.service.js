@@ -152,6 +152,12 @@ const unlockProperty = async (propertyId, customer, { phone, method = 'ecocash',
     throw { status: 502, message: resp?.error || 'Payment initiation failed. Please try again.' };
   }
 
+  // Persist pollUrl so status endpoint can query PayNow directly
+  if (resp.pollUrl) {
+    booking.pollUrl = resp.pollUrl;
+    await booking.save();
+  }
+
   return {
     bookingId: booking._id,
     reference,
@@ -244,6 +250,33 @@ const nearbyProperties = async ({ lat, lng, radius = 10, page = 1, limit = 20 })
   return { properties, pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) } };
 };
 
+const checkPropertyPaymentStatus = async (customerId, reference) => {
+  const booking = await PropertyBooking.findOne({ paymentReference: reference, customer: customerId });
+  if (!booking) return { status: 'pending', unlocked: false };
+  if (booking.viewUnlocked) return { status: 'paid', unlocked: true };
+
+  // Still pending — poll PayNow directly if we have the URL
+  if (booking.pollUrl) {
+    try {
+      const paynow = getPaynow();
+      const statusResp = await paynow.pollTransaction(booking.pollUrl);
+      if (statusResp && statusResp.paid()) {
+        booking.paymentStatus = 'paid';
+        booking.viewUnlocked = true;
+        await booking.save();
+        const property = await Property.findById(booking.property).select('title owner');
+        if (property) {
+          notify(booking.customer, 'Property Unlocked', `Full details for "${property.title}" are now available.`, 'payment');
+          notify(property.owner, 'Property Viewed', `Someone unlocked and viewed your property "${property.title}".`, 'payment');
+        }
+        return { status: 'paid', unlocked: true };
+      }
+    } catch (_) { /* network glitch — return pending */ }
+  }
+
+  return { status: 'pending', unlocked: false };
+};
+
 module.exports = {
   createProperty,
   updateProperty,
@@ -256,4 +289,5 @@ module.exports = {
   approveProperty,
   adminGetAllProperties,
   nearbyProperties,
+  checkPropertyPaymentStatus,
 };

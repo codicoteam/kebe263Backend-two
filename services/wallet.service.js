@@ -31,7 +31,7 @@ const depositViaPayNow = async (userId, { amount, currency = 'USD', phone, metho
   const payment = paynow.createPayment(reference, authEmail);
   payment.add('Wallet Deposit', Number(amount));
 
-  // Save pending transaction — webhook will flip to completed and credit wallet
+  // Save pending transaction — webhook or poll will flip to completed and credit wallet
   const transaction = await WalletTransaction.create({
     wallet: wallet._id,
     type: 'deposit',
@@ -39,6 +39,7 @@ const depositViaPayNow = async (userId, { amount, currency = 'USD', phone, metho
     reference,
     description: 'Wallet deposit via PayNow',
     status: 'pending',
+    pollUrl: null, // set after PayNow responds
   });
 
   let resp;
@@ -52,6 +53,12 @@ const depositViaPayNow = async (userId, { amount, currency = 'USD', phone, metho
   if (!resp || !resp.success) {
     await WalletTransaction.findByIdAndDelete(transaction._id);
     throw { status: 502, message: resp?.error || 'Payment initiation failed. Please try again.' };
+  }
+
+  // Persist pollUrl so status endpoint can query PayNow directly
+  if (resp.pollUrl) {
+    transaction.pollUrl = resp.pollUrl;
+    await transaction.save();
   }
 
   return {
@@ -113,7 +120,25 @@ const getTransactionStatus = async (userId, reference) => {
   const wallet = await Wallet.findOne({ owner: userId });
   if (!wallet) return { status: 'pending' };
   const txn = await WalletTransaction.findOne({ wallet: wallet._id, reference });
-  return { status: txn?.status || 'pending' };
+  if (!txn) return { status: 'pending' };
+  if (txn.status === 'completed') return { status: 'completed' };
+
+  // Still pending — ask PayNow directly if we have the poll URL
+  if (txn.pollUrl) {
+    try {
+      const paynow = getPaynow();
+      const statusResp = await paynow.pollTransaction(txn.pollUrl);
+      if (statusResp && statusResp.paid()) {
+        wallet.balance = Number((wallet.balance + txn.amount).toFixed(2));
+        await wallet.save();
+        txn.status = 'completed';
+        await txn.save();
+        return { status: 'completed' };
+      }
+    } catch (_) { /* network glitch — return pending */ }
+  }
+
+  return { status: 'pending' };
 };
 
 module.exports = { getMyWallet, depositViaPayNow, handlePaynowDeposit, getTransactions, adminGetAllWallets, getTransactionStatus };

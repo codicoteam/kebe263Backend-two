@@ -72,6 +72,13 @@ const depositWebhook = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const depositStatus = async (req, res, next) => {
+  try {
+    const result = await serviceProviderService.checkDepositStatus(req.user._id, req.params.reference);
+    return success(res, 'Deposit status', result);
+  } catch (err) { next(err); }
+};
+
 const approveService = async (req, res, next) => {
   try {
     const service = await serviceProviderService.approveService(req.params.id);
@@ -89,5 +96,5 @@ const adminGetAllServices = async (req, res, next) => {
 module.exports = {
   createService, updateService, deleteService, getMyServices, payDeposit,
   listServices, nearbyServices, getServiceById, bookService,
-  depositWebhook, approveService, adminGetAllServices,
+  depositWebhook, depositStatus, approveService, adminGetAllServices,
 };

@@ -258,6 +258,8 @@ router.get('/', authenticate, propertyController.listProperties);
  */
 router.post('/', authenticate, isServiceProvider, propertyController.createProperty);
 
+router.get('/payment-status/:reference', authenticate, propertyController.paymentStatus);
+
 // ─── Dynamic routes: /:id must come after all static paths ───────────────────
 
 /**

@@ -27,6 +27,8 @@ const isServiceProvider = require('../middleware/isServiceProvider');
  */
 router.post('/paynow/result', serviceProviderController.depositWebhook);
 
+router.get('/deposit-status/:reference', authenticate, serviceProviderController.depositStatus);
+
 // ─── Static paths (must come before /:id) ────────────────────────────────────
 
 /**

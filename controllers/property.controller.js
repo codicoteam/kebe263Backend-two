@@ -106,6 +106,13 @@ const nearbyProperties = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const paymentStatus = async (req, res, next) => {
+  try {
+    const result = await propertyService.checkPropertyPaymentStatus(req.user._id, req.params.reference);
+    return success(res, 'Payment status', result);
+  } catch (err) { next(err); }
+};
+
 module.exports = {
   createProperty,
   updateProperty,
@@ -118,4 +125,5 @@ module.exports = {
   approveProperty,
   adminGetAllProperties,
   nearbyProperties,
+  paymentStatus,
 };

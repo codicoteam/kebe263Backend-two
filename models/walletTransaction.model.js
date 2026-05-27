@@ -6,6 +6,7 @@ const walletTransactionSchema = new mongoose.Schema(
     type: { type: String, enum: ['deposit', 'deduction', 'withdrawal'], required: true },
     amount: { type: Number, required: true },
     reference: { type: String, default: null },
+    pollUrl: { type: String, default: null },
     description: { type: String, default: null },
     status: { type: String, enum: ['pending', 'completed'], default: 'completed' },
   },

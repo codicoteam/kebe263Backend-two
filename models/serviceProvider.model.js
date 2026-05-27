@@ -26,6 +26,7 @@ const serviceProviderSchema = new mongoose.Schema(
     depositPaid: { type: Boolean, default: false },
     depositAmount: { type: Number, default: 0 },
     depositReference: { type: String, default: null },
+    depositPollUrl: { type: String, default: null },
     rating: { type: Number, default: 0 },
     totalReviews: { type: Number, default: 0 },
   },
