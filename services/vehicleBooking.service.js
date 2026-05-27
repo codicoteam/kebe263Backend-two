@@ -347,8 +347,8 @@ const claimOpenRideRequest = async (bookingId, ownerId) => {
   }
 
   const vehicle = await Vehicle.findOne({ owner: ownerId });
-  if (!vehicle) throw { status: 404, message: 'You do not have a registered vehicle' };
-  if (!vehicle.isAvailable) throw { status: 409, message: 'Your vehicle is currently unavailable' };
+  if (!vehicle) throw { status: 400, message: 'You need to register a vehicle before accepting ride requests. Go to My Vehicle to add one.' };
+  if (!vehicle.isAvailable) throw { status: 409, message: 'Your vehicle is currently unavailable. Mark it as available in My Vehicle settings.' };
 
   if (booking.vehicleType && booking.vehicleType !== vehicle.type) {
     throw { status: 400, message: `This request requires a ${booking.vehicleType}` };
