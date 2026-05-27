@@ -359,9 +359,11 @@ const claimOpenRideRequest = async (bookingId, ownerId) => {
   booking.status = 'accepted';
   booking.priceStatus = 'agreed';
 
+  // Pre-calculate fee amounts on the booking record so completeBooking
+  // can settle them at ride completion — no upfront wallet deduction for open requests.
   const feePercent = Number(await getConfig('platformFeePercent', process.env.PLATFORM_FEE_PERCENT || '10'));
-  const wallet = await getOrCreateWallet(ownerId, booking.currency);
-  await reservePlatformFee(booking, wallet, feePercent);
+  booking.platformFee = Number((booking.agreedPrice * (feePercent / 100)).toFixed(2));
+  booking.ownerEarnings = Number((booking.agreedPrice - booking.platformFee).toFixed(2));
 
   await booking.save();
 
