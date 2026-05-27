@@ -106,9 +106,16 @@ const acceptBooking = async (bookingId, ownerId) => {
 
   booking.status = 'accepted';
   booking.priceStatus = 'agreed';
+  const notifyCustomer = booking.customer;
   await booking.save();
 
-  notify(booking.customer, 'Booking Accepted', 'Your vehicle booking has been accepted. The driver is on the way.', 'booking');
+  await booking.populate([
+    { path: 'vehicle', select: 'make model year color plateNumber type images' },
+    { path: 'customer', select: 'firstName lastName phone email' },
+    { path: 'owner', select: 'firstName lastName phone' },
+  ]);
+
+  notify(notifyCustomer, 'Booking Accepted', 'Your vehicle booking has been accepted. The driver is on the way.', 'booking');
   return booking;
 };
 
@@ -121,9 +128,17 @@ const counterOffer = async (bookingId, ownerId, counterPrice) => {
 
   booking.ownerCounterPrice = counterPrice;
   booking.priceStatus = 'counterOffered';
+  const notifyCustomer = booking.customer;
+  const bookingCurrency = booking.currency;
   await booking.save();
 
-  notify(booking.customer, 'Driver Proposed a New Price', `Driver proposed ${booking.currency} ${counterPrice.toFixed(2)} — accept or decline`, 'booking');
+  await booking.populate([
+    { path: 'vehicle', select: 'make model year color plateNumber type images' },
+    { path: 'customer', select: 'firstName lastName phone email' },
+    { path: 'owner', select: 'firstName lastName phone' },
+  ]);
+
+  notify(notifyCustomer, 'Driver Proposed a New Price', `Driver proposed ${bookingCurrency} ${counterPrice.toFixed(2)} — accept or decline`, 'booking');
   return booking;
 };
 
@@ -141,9 +156,16 @@ const acceptCounter = async (bookingId, customerId) => {
   const wallet = await getOrCreateWallet(booking.owner, booking.currency);
   await reservePlatformFee(booking, wallet, feePercent);
 
+  const notifyOwner = booking.owner;
   await booking.save();
 
-  notify(booking.owner, 'Counter Offer Accepted', 'Customer accepted your counter offer. Proceed to pickup.', 'booking');
+  await booking.populate([
+    { path: 'vehicle', select: 'make model year color plateNumber type images' },
+    { path: 'customer', select: 'firstName lastName phone email' },
+    { path: 'owner', select: 'firstName lastName phone' },
+  ]);
+
+  notify(notifyOwner, 'Counter Offer Accepted', 'Customer accepted your counter offer. Proceed to pickup.', 'booking');
   return booking;
 };
 
@@ -155,9 +177,16 @@ const rejectCounter = async (bookingId, customerId) => {
 
   booking.status = 'cancelled';
   booking.priceStatus = 'customerOffer';
+  const notifyOwner = booking.owner;
   await booking.save();
 
-  notify(booking.owner, 'Counter Offer Declined', 'Customer declined your counter offer.', 'booking');
+  await booking.populate([
+    { path: 'vehicle', select: 'make model year color plateNumber type images' },
+    { path: 'customer', select: 'firstName lastName phone email' },
+    { path: 'owner', select: 'firstName lastName phone' },
+  ]);
+
+  notify(notifyOwner, 'Counter Offer Declined', 'Customer declined your counter offer.', 'booking');
   return booking;
 };
 
@@ -169,6 +198,13 @@ const startRide = async (bookingId, ownerId) => {
 
   booking.status = 'inProgress';
   await booking.save();
+
+  await booking.populate([
+    { path: 'vehicle', select: 'make model year color plateNumber type images' },
+    { path: 'customer', select: 'firstName lastName phone email' },
+    { path: 'owner', select: 'firstName lastName phone' },
+  ]);
+
   return booking;
 };
 
@@ -200,10 +236,18 @@ const completeBooking = async (bookingId, ownerId) => {
   booking.platformFee = platformFee;
   booking.ownerEarnings = ownerEarnings;
   booking.paymentStatus = 'paid';
+  const notifyOwner = booking.owner;
+  const notifyCustomer = booking.customer;
   await booking.save();
 
-  notify(booking.owner, 'Ride Completed', `Ride completed. Your earnings: $${ownerEarnings}. Platform fee: $${platformFee}.`, 'payment');
-  notify(booking.customer, 'Ride Completed', 'Your ride has been completed. Thank you for using kebe263!', 'payment');
+  await booking.populate([
+    { path: 'vehicle', select: 'make model year color plateNumber type images' },
+    { path: 'customer', select: 'firstName lastName phone email' },
+    { path: 'owner', select: 'firstName lastName phone' },
+  ]);
+
+  notify(notifyOwner, 'Ride Completed', `Ride completed. Your earnings: $${ownerEarnings}. Platform fee: $${platformFee}.`, 'payment');
+  notify(notifyCustomer, 'Ride Completed', 'Your ride has been completed. Thank you for using kebe263!', 'payment');
 
   return { booking, platformFee, ownerEarnings, feePercent, walletBalance: wallet.balance };
 };
@@ -323,7 +367,7 @@ const getOpenRideRequests = async (ownerId, query) => {
 
   const q = { requestType: 'open', status: 'pending', owner: null };
   if (spVehicle) {
-    q.$or = [{ vehicleType: spVehicle.type }, { vehicleType: null }];
+    q.$or = [{ vehicleType: spVehicle.type }, { vehicleType: { $in: [null, ''] } }];
   }
 
   const skip = (Number(page) - 1) * Number(limit);
