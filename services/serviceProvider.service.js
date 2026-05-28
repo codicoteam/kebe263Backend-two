@@ -214,7 +214,7 @@ const checkDepositStatus = async (ownerId, reference) => {
     try {
       const paynow = getPaynow();
       const statusResp = await paynow.pollTransaction(service.depositPollUrl);
-      if (statusResp && statusResp.paid()) {
+      if (statusResp && statusResp.status && statusResp.status.toLowerCase() === 'paid') {
         service.depositPaid = true;
         await service.save();
         notify(service.owner, 'Deposit Received', `Your deposit for "${service.businessName}" has been received. Pending admin approval.`, 'deposit');

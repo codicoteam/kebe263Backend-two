@@ -128,7 +128,7 @@ const getTransactionStatus = async (userId, reference) => {
     try {
       const paynow = getPaynow();
       const statusResp = await paynow.pollTransaction(txn.pollUrl);
-      if (statusResp && statusResp.paid()) {
+      if (statusResp && statusResp.status && statusResp.status.toLowerCase() === 'paid') {
         wallet.balance = Number((wallet.balance + txn.amount).toFixed(2));
         await wallet.save();
         txn.status = 'completed';

@@ -260,7 +260,7 @@ const checkPropertyPaymentStatus = async (customerId, reference) => {
     try {
       const paynow = getPaynow();
       const statusResp = await paynow.pollTransaction(booking.pollUrl);
-      if (statusResp && statusResp.paid()) {
+      if (statusResp && statusResp.status && statusResp.status.toLowerCase() === 'paid') {
         booking.paymentStatus = 'paid';
         booking.viewUnlocked = true;
         await booking.save();
