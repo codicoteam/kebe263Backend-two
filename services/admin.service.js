@@ -92,15 +92,30 @@ const removeCategory = async (adminId, entity, value) => {
 const broadcastNotification = async (title, message, type = 'system', role = null) => {
   const query = { isActive: true };
   if (role) query.roles = role;
-  const recipients = await User.find(query).select('_id');
+  const recipients = await User.find(query).select('+fcmTokens');
   if (!recipients.length) return [];
-  const notifications = recipients.map((recipient) => ({
-    recipient: recipient._id,
-    title,
-    message,
-    type,
-  }));
-  return Notification.insertMany(notifications);
+
+  const notifications = recipients.map((r) => ({ recipient: r._id, title, message, type }));
+  const result = await Notification.insertMany(notifications);
+
+  const allTokens = recipients.flatMap((r) => r.fcmTokens || []);
+  if (allTokens.length > 0) {
+    const admin = require('../config/firebase');
+    const BATCH = 500;
+    for (let i = 0; i < allTokens.length; i += BATCH) {
+      try {
+        const res = await admin.messaging().sendEachForMulticast({
+          notification: { title, body: message },
+          tokens: allTokens.slice(i, i + BATCH),
+        });
+        if (res.failureCount > 0) console.warn(`[FCM Broadcast] ${res.failureCount} tokens failed`);
+      } catch (err) {
+        console.error('[FCM Broadcast] Push failed:', err.message);
+      }
+    }
+  }
+
+  return result;
 };
 
 // ─── User Management ──────────────────────────────────────────────────────────

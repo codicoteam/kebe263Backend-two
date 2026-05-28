@@ -122,6 +122,10 @@ router.put('/me/role', authenticate, userController.changeRole);
  */
 router.put('/me/change-password', authenticate, userController.changePassword);
 
+// ─── FCM token routes ─────────────────────────────────────────────────────────
+router.post('/me/fcm-token', authenticate, userController.registerFcmToken);
+router.delete('/me/fcm-token', authenticate, userController.removeFcmToken);
+
 // ─── Admin routes ─────────────────────────────────────────────────────────────
 
 /**

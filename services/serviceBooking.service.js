@@ -62,6 +62,7 @@ const startBooking = async (bookingId, providerId) => {
   if (booking.status !== 'accepted') throw { status: 400, message: `Cannot start booking with status: ${booking.status}` };
   booking.status = 'inProgress';
   await booking.save();
+  notify(booking.customer, 'Service Started', 'The service provider is on the way to you!', 'booking');
   return booking;
 };
 
@@ -115,6 +116,12 @@ const cancelBooking = async (bookingId, userId) => {
 
   booking.status = 'cancelled';
   await booking.save();
+  const cancelledBy = booking.customer.toString() === userId.toString() ? 'customer' : 'provider';
+  if (cancelledBy === 'customer') {
+    notify(booking.provider, 'Booking Cancelled', 'A customer has cancelled their service booking.', 'booking');
+  } else {
+    notify(booking.customer, 'Booking Cancelled', 'Your service booking has been cancelled by the provider.', 'booking');
+  }
   return booking;
 };
 

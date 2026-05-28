@@ -1,4 +1,5 @@
 const userService = require('../services/user.service');
+const User = require('../models/user.model');
 const { success, error } = require('../utils/apiResponse');
 
 const getMe = async (req, res, next) => {
@@ -98,4 +99,32 @@ const deactivateUser = async (req, res, next) => {
   }
 };
 
-module.exports = { getMe, updateMe, changeRole, changePassword, getAllUsers, getUserById, updateUser, deleteUser, activateUser, deactivateUser };
+const registerFcmToken = async (req, res, next) => {
+  try {
+    const { token } = req.body;
+    if (!token) return error(res, 'token is required', 400);
+    await User.updateOne(
+      { _id: req.user._id },
+      { $addToSet: { fcmTokens: token } },
+    );
+    return success(res, 'FCM token registered');
+  } catch (err) {
+    next(err);
+  }
+};
+
+const removeFcmToken = async (req, res, next) => {
+  try {
+    const { token } = req.body;
+    if (!token) return error(res, 'token is required', 400);
+    await User.updateOne(
+      { _id: req.user._id },
+      { $pull: { fcmTokens: token } },
+    );
+    return success(res, 'FCM token removed');
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getMe, updateMe, changeRole, changePassword, getAllUsers, getUserById, updateUser, deleteUser, activateUser, deactivateUser, registerFcmToken, removeFcmToken };

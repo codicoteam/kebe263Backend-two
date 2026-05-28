@@ -199,6 +199,8 @@ const startRide = async (bookingId, ownerId) => {
   booking.status = 'inProgress';
   await booking.save();
 
+  notify(booking.customer, 'Ride Started', 'Your driver has started the ride. Enjoy your trip!', 'booking');
+
   await booking.populate([
     { path: 'vehicle', select: 'make model year color plateNumber type images' },
     { path: 'customer', select: 'firstName lastName phone email' },
@@ -269,6 +271,12 @@ const cancelBooking = async (bookingId, userId) => {
 
   booking.status = 'cancelled';
   await booking.save();
+  const cancelledBy = booking.customer.toString() === userId.toString() ? 'customer' : 'owner';
+  if (cancelledBy === 'customer') {
+    notify(booking.owner, 'Ride Cancelled', 'A customer has cancelled their ride booking.', 'booking');
+  } else {
+    notify(booking.customer, 'Ride Cancelled', 'Your ride has been cancelled by the driver.', 'booking');
+  }
   return booking;
 };
 
