@@ -135,10 +135,11 @@ router.post('/verify-otp', authController.verifyOtp);
  *               email:
  *                 type: string
  *                 format: email
- *                 example: takudzwa@example.co.zw
  *               password:
  *                 type: string
- *                 example: StrongPass1!
+ *           example:
+ *             email: "user@example.com"
+ *             password: "YourPassword123"
  *     responses:
  *       200:
  *         description: Login successful, JWT token and user object returned

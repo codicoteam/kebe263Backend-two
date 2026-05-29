@@ -1,6 +1,10 @@
 const { error } = require('../utils/apiResponse');
 
 const errorHandler = (err, req, res, next) => {
+  if (err.type === 'entity.parse.failed') {
+    return error(res, 'Invalid JSON in request body. Make sure your body is valid JSON (check for missing commas, quotes, or brackets).', 400);
+  }
+
   if (err.status) {
     return error(res, err.message, err.status, err);
   }
