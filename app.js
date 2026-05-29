@@ -68,14 +68,15 @@ const allowedOrigins = Array.from(
     ...extraOrigins,
     ...(envOrigins.length === 0 ? defaultLocalOrigins : []),
   ])
-);
+).map((o) => o.replace(/\/+$/, ''));
 const allowAllOrigins = allowedOrigins.includes('*');
 
 app.use(cors({
   origin: (origin, callback) => {
     // allow requests with no origin (Postman, mobile apps, curl)
     if (!origin) return callback(null, true);
-    if (allowAllOrigins || allowedOrigins.includes(origin)) {
+    const normalizedOrigin = origin.replace(/\/+$/, '');
+    if (allowAllOrigins || allowedOrigins.includes(normalizedOrigin)) {
       return callback(null, true);
     }
     callback(new Error(`CORS: origin ${origin} not allowed`));
