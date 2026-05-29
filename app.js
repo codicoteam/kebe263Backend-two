@@ -72,15 +72,7 @@ const allowedOrigins = Array.from(
 const allowAllOrigins = allowedOrigins.includes('*');
 
 app.use(cors({
-  origin: (origin, callback) => {
-    // allow requests with no origin (Postman, mobile apps, curl)
-    if (!origin) return callback(null, true);
-    const normalizedOrigin = origin.replace(/\/+$/, '');
-    if (allowAllOrigins || allowedOrigins.includes(normalizedOrigin)) {
-      return callback(null, true);
-    }
-    callback(new Error(`CORS: origin ${origin} not allowed`));
-  },
+  origin: true,
   credentials: true,
 }));
 app.use(express.json());
