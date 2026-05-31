@@ -232,6 +232,25 @@ const completeBooking = async (bookingId, ownerId) => {
     transaction.status = 'completed';
     transaction.description = `Platform fee (${feePercent}%) charged for booking ${bookingId}`;
     await transaction.save();
+  } else {
+    // Open ride requests skip upfront reservation — deduct platform fee now at completion
+    if (wallet.balance < platformFee) {
+      throw {
+        status: 400,
+        message: `Insufficient wallet balance. Platform fee of ${booking.currency} ${platformFee} is required to complete this booking.`,
+      };
+    }
+    wallet.balance = Number((wallet.balance - platformFee).toFixed(2));
+    await wallet.save();
+
+    await WalletTransaction.create({
+      wallet: wallet._id,
+      type: 'deduction',
+      amount: platformFee,
+      reference: `BOOKING-COMPLETE-${booking._id}`,
+      description: `Platform fee (${feePercent}%) charged for booking ${bookingId}`,
+      status: 'completed',
+    });
   }
 
   booking.status = 'completed';
