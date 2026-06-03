@@ -127,4 +127,33 @@ const removeFcmToken = async (req, res, next) => {
   }
 };
 
-module.exports = { getMe, updateMe, changeRole, changePassword, getAllUsers, getUserById, updateUser, deleteUser, activateUser, deactivateUser, registerFcmToken, removeFcmToken };
+const getFavorites = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id).select('favorites');
+    return success(res, 'Favorites fetched', { favorites: user?.favorites || [] });
+  } catch (err) { next(err); }
+};
+
+const addFavorite = async (req, res, next) => {
+  try {
+    const { listingId, listingKind } = req.body;
+    if (!listingId || !listingKind) return error(res, 'listingId and listingKind required', 400);
+    await User.findByIdAndUpdate(
+      req.user._id,
+      { $addToSet: { favorites: { listingId, listingKind, addedAt: new Date() } } }
+    );
+    return success(res, 'Added to favorites');
+  } catch (err) { next(err); }
+};
+
+const removeFavorite = async (req, res, next) => {
+  try {
+    await User.findByIdAndUpdate(
+      req.user._id,
+      { $pull: { favorites: { listingId: req.params.listingId } } }
+    );
+    return success(res, 'Removed from favorites');
+  } catch (err) { next(err); }
+};
+
+module.exports = { getMe, updateMe, changeRole, changePassword, getAllUsers, getUserById, updateUser, deleteUser, activateUser, deactivateUser, registerFcmToken, removeFcmToken, getFavorites, addFavorite, removeFavorite };

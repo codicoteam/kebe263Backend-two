@@ -126,6 +126,11 @@ router.put('/me/change-password', authenticate, userController.changePassword);
 router.post('/me/fcm-token', authenticate, userController.registerFcmToken);
 router.delete('/me/fcm-token', authenticate, userController.removeFcmToken);
 
+// ─── Favorites ────────────────────────────────────────────────────────────────
+router.get('/me/favorites', authenticate, userController.getFavorites);
+router.post('/me/favorites', authenticate, userController.addFavorite);
+router.delete('/me/favorites/:listingId', authenticate, userController.removeFavorite);
+
 // ─── Admin routes ─────────────────────────────────────────────────────────────
 
 /**

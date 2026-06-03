@@ -84,6 +84,16 @@ const userSchema = new mongoose.Schema(
       default: [],
       select: false,
     },
+    favorites: {
+      type: [
+        {
+          listingId: { type: String },
+          listingKind: { type: String, enum: ['vehicle', 'accommodation', 'service'] },
+          addedAt: { type: Date, default: Date.now },
+        },
+      ],
+      default: [],
+    },
   },
   {
     timestamps: true,
