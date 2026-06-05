@@ -20,6 +20,7 @@ const adminRoutes = require('./routes/admin.routes');
 const notificationRoutes = require('./routes/notification.routes');
 const searchRoutes = require('./routes/search.routes');
 const chatRoutes = require('./routes/chat.routes');
+const promoCodeRoutes = require('./routes/promoCode.routes');
 const debugRoutes = require('./routes/debug.routes');
 
 const app = express();
@@ -117,7 +118,7 @@ app.use('/api-docs', swaggerUi.serve, (req, res, next) => {
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ success: true, message: 'kebe263 Super App API is running', timestamp: new Date().toISOString() });
+  res.json({ success: true, message: 'KEBE Super App API is running', timestamp: new Date().toISOString() });
 });
 
 app.use('/api/auth', authLimiter, authRoutes);
@@ -130,6 +131,7 @@ app.use('/api/config', configRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/bookings/service', serviceBookingRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api', promoCodeRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/chat', chatRoutes);
@@ -139,7 +141,7 @@ app.use('/api/debug', debugRoutes);
 app.get('/', (req, res) => {
   res.json({
     success: true,
-    message: 'kebe263 Super App API is running',
+    message: 'KEBE Super App API is running',
     health: '/api/health',
     docs: '/api-docs'
   });

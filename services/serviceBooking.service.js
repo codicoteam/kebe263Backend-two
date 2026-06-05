@@ -6,6 +6,7 @@ const WalletTransaction = require('../models/walletTransaction.model');
 const { getConfig } = require('../utils/configCache');
 const notify = require('../utils/notify');
 const chatService = require('./chat.service');
+const promoService = require('./promoCode.service');
 
 const getOrCreateWallet = async (userId, currency = 'USD') => {
   let wallet = await Wallet.findOne({ owner: userId });
@@ -14,12 +15,25 @@ const getOrCreateWallet = async (userId, currency = 'USD') => {
 };
 
 const createBooking = async (customerId, serviceId, data) => {
-  const { description, scheduledDate, location, agreedPrice, currency, serviceType } = data;
+  const { description, scheduledDate, location, agreedPrice, currency, serviceType, promoCode } = data;
   if (!agreedPrice) throw { status: 400, message: 'agreedPrice is required' };
 
   const service = await ServiceProvider.findById(serviceId);
   if (!service || !service.isApproved || !service.depositPaid) throw { status: 404, message: 'Service not found' };
   if (!service.isAvailable) throw { status: 409, message: 'Service provider is currently unavailable' };
+
+  let finalPrice = agreedPrice;
+  let discountAmount = 0;
+  let promoCodeId = null;
+
+  if (promoCode) {
+    const promoResult = await promoService.applyPromoCode(
+      promoCode, customerId, agreedPrice, 'service'
+    );
+    discountAmount = promoResult.discountAmount;
+    finalPrice = promoResult.finalAmount;
+    promoCodeId = promoResult.promoId;
+  }
 
   const booking = await ServiceBooking.create({
     service: serviceId,
@@ -29,12 +43,19 @@ const createBooking = async (customerId, serviceId, data) => {
     scheduledDate: scheduledDate || null,
     location: location || {},
     serviceType: serviceType || 'provider_comes_to_me',
-    agreedPrice,
+    agreedPrice: finalPrice,
+    originalPrice: agreedPrice,
+    discountAmount,
+    promoCode: promoCode ? promoCode.toUpperCase() : null,
+    promoCodeId,
     currency: currency || service.currency,
     status: 'pending',
   });
 
-  notify(service.owner, 'New Service Booking', `New booking request for "${service.businessName}". Agreed price: ${agreedPrice}`, 'booking');
+  const priceDisplay = discountAmount > 0
+    ? `${finalPrice} (${discountAmount} discount applied)`
+    : agreedPrice;
+  notify(service.owner, 'New Service Booking', `New booking request for "${service.businessName}". Agreed price: ${priceDisplay}`, 'booking');
   chatService.createOrGetRoomForBooking('service', booking._id.toString(), [customerId.toString(), service.owner.toString()]).catch(() => {});
 
   return booking.populate([
@@ -72,7 +93,8 @@ const completeBooking = async (bookingId, providerId) => {
   if (booking.provider.toString() !== providerId.toString()) throw { status: 403, message: 'Not your booking' };
   if (booking.status !== 'inProgress') throw { status: 400, message: `Cannot complete booking with status: ${booking.status}` };
 
-  const feePercent = Number(await getConfig('platformFeePercent', process.env.PLATFORM_FEE_PERCENT || '10'));
+  const globalFee = await getConfig('platformFeePercent', process.env.PLATFORM_FEE_PERCENT || '10');
+  const feePercent = Number(await getConfig('servicePlatformFeePercent', globalFee));
 
   const platformFee = Number((booking.agreedPrice * (feePercent / 100)).toFixed(2));
   const providerEarnings = Number((booking.agreedPrice - platformFee).toFixed(2));

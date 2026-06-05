@@ -13,6 +13,120 @@ const guard = [authenticate, isAdmin];
  *   description: Admin-only management and analytics endpoints
  */
 
+// ─── Pricing Rules ────────────────────────────────────────────────────────────
+
+/**
+ * @swagger
+ * /api/admin/pricing:
+ *   get:
+ *     summary: Get all platform pricing rules
+ *     description: >
+ *       Returns all pricing-related configuration values managed by the admin.
+ *       These keys control how platform fees are calculated across all services.
+ *
+ *       **Available pricing keys and how they are used:**
+ *
+ *       | Key | Default | Used In | Description |
+ *       |-----|---------|---------|-------------|
+ *       | `platformFeePercent` | `10` | All bookings | Global platform fee %. Used as fallback when service-specific fee is not set. |
+ *       | `vehiclePlatformFeePercent` | falls back to `platformFeePercent` | Vehicle bookings | Override fee % for vehicle/ride bookings only. |
+ *       | `servicePlatformFeePercent` | falls back to `platformFeePercent` | Service bookings | Override fee % for service provider bookings only. |
+ *       | `serviceProviderDepositAmount` | `20` | Service provider registration | USD deposit required for a service provider to go live. |
+ *       | `vehicleOwnerDepositAmount` | `0` | Vehicle registration | USD deposit required for vehicle owners (if applicable). |
+ *       | `minBookingAmountVehicle` | `0` | Vehicle bookings | Minimum agreed price for a vehicle booking. |
+ *       | `minBookingAmountService` | `0` | Service bookings | Minimum agreed price for a service booking. |
+ *
+ *       **How to update:** Use `PUT /api/admin/pricing/:key` with `{ "value": "15" }`.
+ *       All values are stored as strings and parsed to numbers at runtime.
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: All pricing config entries
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     pricing:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           key: { type: string }
+ *                           value: { type: string }
+ *                           description: { type: string }
+ *                           updatedAt: { type: string, format: date-time }
+ */
+router.get('/pricing', ...guard, adminController.getPricingRules);
+
+/**
+ * @swagger
+ * /api/admin/pricing/{key}:
+ *   put:
+ *     summary: Update a pricing rule
+ *     description: >
+ *       Update any pricing configuration key. The system uses this value for all
+ *       future bookings. Changes take effect within 5 minutes (config cache TTL).
+ *
+ *       **Common update examples:**
+ *       - Set vehicle fee to 12%: `PUT /api/admin/pricing/vehiclePlatformFeePercent` → `{ "value": "12" }`
+ *       - Set global fee to 15%: `PUT /api/admin/pricing/platformFeePercent` → `{ "value": "15" }`
+ *       - Set service deposit to $25: `PUT /api/admin/pricing/serviceProviderDepositAmount` → `{ "value": "25" }`
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: key
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum:
+ *             - platformFeePercent
+ *             - vehiclePlatformFeePercent
+ *             - servicePlatformFeePercent
+ *             - serviceProviderDepositAmount
+ *             - vehicleOwnerDepositAmount
+ *             - minBookingAmountVehicle
+ *             - minBookingAmountService
+ *         example: platformFeePercent
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [value]
+ *             properties:
+ *               value:
+ *                 type: string
+ *                 example: "12"
+ *                 description: New value (always a string; parsed to number at runtime)
+ *               description:
+ *                 type: string
+ *                 example: Vehicle platform commission rate
+ *           examples:
+ *             globalFee:
+ *               summary: Set global fee to 12%
+ *               value: { value: "12", description: "Global platform commission" }
+ *             vehicleFee:
+ *               summary: Set vehicle-specific fee to 8%
+ *               value: { value: "8", description: "Vehicle ride commission" }
+ *             serviceDeposit:
+ *               summary: Set service provider deposit to $25
+ *               value: { value: "25", description: "Service provider onboarding deposit" }
+ *     responses:
+ *       200:
+ *         description: Pricing rule updated — changes take effect within 5 minutes
+ */
+router.put('/pricing/:key', ...guard, adminController.updatePricingRule);
+
 // ─── Platform Config ──────────────────────────────────────────────────────────
 
 /**

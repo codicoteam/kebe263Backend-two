@@ -5,6 +5,7 @@ const WalletTransaction = require('../models/walletTransaction.model');
 const { getConfig } = require('../utils/configCache');
 const notify = require('../utils/notify');
 const chatService = require('./chat.service');
+const promoService = require('./promoCode.service');
 
 const getOrCreateWallet = async (ownerId, currency = 'USD') => {
   let wallet = await Wallet.findOne({ owner: ownerId });
@@ -59,7 +60,7 @@ const releaseReservedPlatformFee = async (booking) => {
 };
 
 const createBooking = async (customerId, vehicleId, data) => {
-  const { pickupLocation, dropoffLocation, agreedPrice, currency, transportReason, transportItems } = data;
+  const { pickupLocation, dropoffLocation, agreedPrice, currency, transportReason, transportItems, promoCode } = data;
   if (!pickupLocation || !dropoffLocation || agreedPrice == null) {
     throw { status: 400, message: 'pickupLocation, dropoffLocation, and agreedPrice are required' };
   }
@@ -68,14 +69,31 @@ const createBooking = async (customerId, vehicleId, data) => {
   if (!vehicle || !vehicle.isApproved) throw { status: 404, message: 'Vehicle not found' };
   if (!vehicle.isAvailable) throw { status: 409, message: 'Vehicle is currently unavailable' };
 
+  let finalPrice = agreedPrice;
+  let discountAmount = 0;
+  let promoCodeId = null;
+
+  if (promoCode) {
+    const promoResult = await promoService.applyPromoCode(
+      promoCode, customerId, agreedPrice, 'vehicle'
+    );
+    discountAmount = promoResult.discountAmount;
+    finalPrice = promoResult.finalAmount;
+    promoCodeId = promoResult.promoId;
+  }
+
   const booking = await VehicleBooking.create({
     vehicle: vehicleId,
     customer: customerId,
     owner: vehicle.owner,
     pickupLocation,
     dropoffLocation,
-    agreedPrice,
+    agreedPrice: finalPrice,
     customerOfferedPrice: agreedPrice,
+    originalPrice: agreedPrice,
+    discountAmount,
+    promoCode: promoCode ? promoCode.toUpperCase() : null,
+    promoCodeId,
     currency: currency || vehicle.currency,
     status: 'pending',
     priceStatus: 'customerOffer',
@@ -83,7 +101,7 @@ const createBooking = async (customerId, vehicleId, data) => {
     transportItems: transportItems || null,
   });
 
-  notify(vehicle.owner, 'New Booking Request', `You have a new vehicle booking request. Customer offered: ${agreedPrice}`, 'booking');
+  notify(vehicle.owner, 'New Booking Request', `You have a new vehicle booking request. Customer offered: ${finalPrice}`, 'booking');
   chatService.createOrGetRoomForBooking('vehicle', booking._id.toString(), [customerId.toString(), vehicle.owner.toString()]).catch(() => {});
 
   return booking.populate([
@@ -100,7 +118,8 @@ const acceptBooking = async (bookingId, ownerId) => {
   if (booking.status !== 'pending') throw { status: 400, message: `Cannot accept a booking with status: ${booking.status}` };
   if (booking.priceStatus === 'counterOffered') throw { status: 400, message: 'A counter offer is pending. Customer must accept or decline first.' };
 
-  const feePercent = Number(await getConfig('platformFeePercent', process.env.PLATFORM_FEE_PERCENT || '10'));
+  const globalFee = await getConfig('platformFeePercent', process.env.PLATFORM_FEE_PERCENT || '10');
+  const feePercent = Number(await getConfig('vehiclePlatformFeePercent', globalFee));
   const wallet = await getOrCreateWallet(booking.owner, booking.currency);
   await reservePlatformFee(booking, wallet, feePercent);
 
@@ -152,7 +171,8 @@ const acceptCounter = async (bookingId, customerId) => {
   booking.priceStatus = 'agreed';
   booking.status = 'accepted';
 
-  const feePercent = Number(await getConfig('platformFeePercent', process.env.PLATFORM_FEE_PERCENT || '10'));
+  const globalFee2 = await getConfig('platformFeePercent', process.env.PLATFORM_FEE_PERCENT || '10');
+  const feePercent = Number(await getConfig('vehiclePlatformFeePercent', globalFee2));
   const wallet = await getOrCreateWallet(booking.owner, booking.currency);
   await reservePlatformFee(booking, wallet, feePercent);
 
@@ -199,7 +219,7 @@ const startRide = async (bookingId, ownerId) => {
   booking.status = 'inProgress';
   await booking.save();
 
-  notify(booking.customer, 'Ride Started', 'Your driver has started the ride. Enjoy your trip!', 'booking');
+  notify(booking.customer, 'Ride Started', 'Your driver has started the ride. Have a safe trip with KEBE Super App!', 'booking');
 
   await booking.populate([
     { path: 'vehicle', select: 'make model year color plateNumber type images' },
@@ -216,7 +236,8 @@ const completeBooking = async (bookingId, ownerId) => {
   if (booking.owner.toString() !== ownerId.toString()) throw { status: 403, message: 'Not your booking' };
   if (booking.status !== 'inProgress') throw { status: 400, message: `Cannot complete a booking with status: ${booking.status}` };
 
-  const feePercent = Number(await getConfig('platformFeePercent', process.env.PLATFORM_FEE_PERCENT || '10'));
+  const globalFeeC = await getConfig('platformFeePercent', process.env.PLATFORM_FEE_PERCENT || '10');
+  const feePercent = Number(await getConfig('vehiclePlatformFeePercent', globalFeeC));
   const platformFee = booking.platformFee || Number((booking.agreedPrice * (feePercent / 100)).toFixed(2));
   const ownerEarnings = booking.ownerEarnings || Number((booking.agreedPrice - platformFee).toFixed(2));
 
@@ -268,7 +289,7 @@ const completeBooking = async (bookingId, ownerId) => {
   ]);
 
   notify(notifyOwner, 'Ride Completed', `Ride completed. Your earnings: $${ownerEarnings}. Platform fee: $${platformFee}.`, 'payment');
-  notify(notifyCustomer, 'Ride Completed', 'Your ride has been completed. Thank you for using kebe263!', 'payment');
+  notify(notifyCustomer, 'Ride Completed', 'Your ride has been completed. Thank you for choosing KEBE Super App!', 'payment');
 
   return { booking, platformFee, ownerEarnings, feePercent, walletBalance: wallet.balance };
 };
@@ -432,7 +453,8 @@ const claimOpenRideRequest = async (bookingId, ownerId) => {
 
   // Pre-calculate fee amounts on the booking record so completeBooking
   // can settle them at ride completion — no upfront wallet deduction for open requests.
-  const feePercent = Number(await getConfig('platformFeePercent', process.env.PLATFORM_FEE_PERCENT || '10'));
+  const globalFeeO = await getConfig('platformFeePercent', process.env.PLATFORM_FEE_PERCENT || '10');
+  const feePercent = Number(await getConfig('vehiclePlatformFeePercent', globalFeeO));
   booking.platformFee = Number((booking.agreedPrice * (feePercent / 100)).toFixed(2));
   booking.ownerEarnings = Number((booking.agreedPrice - booking.platformFee).toFixed(2));
 

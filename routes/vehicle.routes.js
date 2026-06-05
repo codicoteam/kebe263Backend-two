@@ -376,9 +376,21 @@ router.put('/:id/approve', authenticate, isAdmin, vehicleController.approveVehic
  *                   lng: { type: number, example: 31.0609 }
  *               agreedPrice: { type: number, example: 8 }
  *               currency: { type: string, enum: [USD, ZWG], default: USD }
+ *               transportReason: { type: string, example: Personal }
+ *               transportItems: { type: string, example: "furniture" }
+ *               promoCode:
+ *                 type: string
+ *                 example: RIDE5OFF
+ *                 description: >
+ *                   Optional promo code to discount the agreedPrice.
+ *                   Validate via `POST /api/promo-codes/validate` first.
+ *                   The discount is deducted from agreedPrice and the booking stores
+ *                   `originalPrice`, `discountAmount`, and `promoCode`.
  *     responses:
  *       201:
  *         description: Booking request sent to owner
+ *       400:
+ *         description: Invalid or expired promo code
  *       404:
  *         description: Vehicle not found or unavailable
  *       409:

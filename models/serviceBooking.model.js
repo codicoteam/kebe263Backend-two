@@ -32,6 +32,10 @@ const serviceBookingSchema = new mongoose.Schema(
     refundStatus: { type: String, enum: ['none', 'requested', 'refunded'], default: 'none' },
     refundReason: { type: String, default: null },
     refundedAt: { type: Date, default: null },
+    promoCode: { type: String, default: null },
+    promoCodeId: { type: mongoose.Schema.Types.ObjectId, ref: 'PromoCode', default: null },
+    discountAmount: { type: Number, default: 0 },
+    originalPrice: { type: Number, default: 0 },
     providerLocation: {
       lat: { type: Number, default: null },
       lng: { type: Number, default: null },

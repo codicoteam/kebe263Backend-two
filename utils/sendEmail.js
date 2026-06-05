@@ -64,7 +64,7 @@ const sendEmail = async ({ to, subject, html }) => {
   });
 
   const mailOptions = {
-    from: process.env.EMAIL_FROM || 'kebe263 Super App <noreply@kebe263.co.zw>',
+    from: process.env.EMAIL_FROM || 'KEBE Super App <noreply@kebe263.co.zw>',
     to,
     subject,
     html,
@@ -97,7 +97,7 @@ const otpEmailTemplate = (otp, purpose = 'verification') => {
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="background: #1a1a2e; padding: 20px; border-radius: 8px 8px 0 0; text-align: center;">
         <h1 style="color: #FFD700; margin: 0;">kebe263</h1>
-        <p style="color: #ffffff; margin: 5px 0 0;">kebe263 Super App</p>
+        <p style="color: #ffffff; margin: 5px 0 0;">KEBE Super App</p>
       </div>
       <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px;">
         <p style="font-size: 16px; color: #333;">Your one-time password to <strong>${actionText}</strong>:</p>

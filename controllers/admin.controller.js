@@ -10,6 +10,37 @@ const walletService = require('../services/wallet.service');
 const notify = require('../utils/notify');
 const { success } = require('../utils/apiResponse');
 
+// ─── Pricing Rules ────────────────────────────────────────────────────────────
+
+const PRICING_KEYS = [
+  'platformFeePercent',
+  'vehiclePlatformFeePercent',
+  'servicePlatformFeePercent',
+  'serviceProviderDepositAmount',
+  'vehicleOwnerDepositAmount',
+  'minBookingAmountVehicle',
+  'minBookingAmountService',
+];
+
+const getPricingRules = async (req, res, next) => {
+  try {
+    const all = await adminService.getAllConfig();
+    const pricing = all.filter((c) => PRICING_KEYS.includes(c.key));
+    return success(res, 'Pricing rules fetched', { pricing });
+  } catch (err) { next(err); }
+};
+
+const updatePricingRule = async (req, res, next) => {
+  try {
+    const { key } = req.params;
+    if (!PRICING_KEYS.includes(key)) {
+      return next({ status: 400, message: `Unknown pricing key: ${key}. Allowed: ${PRICING_KEYS.join(', ')}` });
+    }
+    const config = await adminService.updateConfig(req.user._id, key, req.body);
+    return success(res, `Pricing rule "${key}" updated`, { config });
+  } catch (err) { next(err); }
+};
+
 // ─── Platform Config ──────────────────────────────────────────────────────────
 
 const getConfig = async (req, res, next) => {
@@ -236,6 +267,7 @@ const adminGetChatRooms = async (req, res, next) => {
 };
 
 module.exports = {
+  getPricingRules, updatePricingRule,
   getConfig, createConfig, updateConfig,
   getCategories, addCategory, removeCategory,
   broadcastNotifications, updateKycStatus, processRefund, getAdminLocations,

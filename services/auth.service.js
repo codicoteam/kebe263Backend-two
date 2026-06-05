@@ -14,7 +14,7 @@ const saveAndSendOTP = async (user, purpose = 'verification') => {
 
   await sendEmail({
     to: user.email,
-    subject: purpose === 'password-reset' ? 'kebe263 Super App — Password Reset OTP' : 'kebe263 Super App — Verify Your Email',
+    subject: purpose === 'password-reset' ? 'KEBE Super App — Password Reset OTP' : 'KEBE Super App — Verify Your Email',
     html: otpEmailTemplate(otp, purpose),
   });
 

@@ -38,7 +38,7 @@ connectDB()
         ? `${process.env.API_BASE_URL.replace(/\/$/, '')}/api-docs`
         : `http://localhost:${PORT}/api-docs`;
 
-      console.log(`kebe263 Super App server running on port ${PORT}`);
+      console.log(`KEBE Super App server running on port ${PORT}`);
       console.log(`API Docs: ${apiDocsUrl}`);
     });
   })

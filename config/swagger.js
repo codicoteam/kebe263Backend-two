@@ -4,10 +4,10 @@ const options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'kebe263 Super App API',
+      title: 'KEBE Super App API',
       version: '1.0.0',
       description:
-        'REST API for kebe263 Super App — Zimbabwe super app covering accommodation booking, vehicle booking with live GPS, and service provider booking.',
+        'REST API for KEBE Super App — Zimbabwe\'s all-in-one super app for accommodation booking, vehicle hire with live GPS tracking, and service provider bookings.',
       contact: {
         name: 'kebe263 Support',
         email: 'support@kebe263.co.zw',
@@ -55,6 +55,7 @@ const options = {
       { name: 'Services', description: 'Service provider profiles, search, and bookings' },
       { name: 'ServiceBookings', description: 'Service booking lifecycle and reviews' },
       { name: 'Admin', description: 'Admin-only management and analytics endpoints' },
+      { name: 'PromoCodes', description: 'Promo code creation, assignment, validation, and user promo listing' },
       { name: 'Notifications', description: 'In-app notification management' },
       { name: 'Search', description: 'Global search across properties, vehicles, and services' },
       { name: 'Chat', description: 'Real-time chat rooms and message history' },
