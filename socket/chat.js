@@ -90,21 +90,27 @@ const setupChat = (chatNamespace) => {
 
     // ─── Typing indicators ──────────────────────────────────────────────────
     socket.on('typing:start', ({ roomId }) => {
+      if (!socket.rooms.has(roomId)) return;
       socket.to(roomId).emit('user:typing', { userId, roomId });
     });
 
     socket.on('typing:stop', ({ roomId }) => {
+      if (!socket.rooms.has(roomId)) return;
       socket.to(roomId).emit('user:stopTyping', { userId, roomId });
     });
 
     // ─── Leave room ─────────────────────────────────────────────────────────
     socket.on('leave:room', ({ roomId }) => {
+      if (!socket.rooms.has(roomId)) return;
       socket.leave(roomId);
       socket.to(roomId).emit('user:left', { userId, roomId });
     });
 
     // ─── Mark messages as read ──────────────────────────────────────────────
     socket.on('mark:read', async ({ roomId }) => {
+      if (!socket.rooms.has(roomId)) {
+        return socket.emit('error', { message: 'Not a participant of this room' });
+      }
       try {
         await ChatMessage.updateMany(
           { room: roomId, sender: { $ne: socket.user._id }, isRead: false },

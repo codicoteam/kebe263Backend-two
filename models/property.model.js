@@ -7,7 +7,7 @@ const propertySchema = new mongoose.Schema(
     description: { type: String, required: [true, 'Description is required'] },
     type: { type: String, enum: ['residential', 'commercial'], required: true },
     category: { type: String, required: true },
-    purpose: { type: String, enum: ['rent', 'sale'], required: true },
+    purpose: { type: String, enum: ['rent', 'sale', 'overnight', 'daily', 'hourly'], required: true },
     price: { type: Number, required: [true, 'Price is required'] },
     currency: { type: String, enum: ['USD', 'ZWG'], default: 'USD' },
     rooms: { type: Number, default: null },

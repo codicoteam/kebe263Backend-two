@@ -442,7 +442,12 @@ router.put('/users/:id/verify', ...guard, adminController.verifyUser);
  * @swagger
  * /api/admin/users/{id}:
  *   delete:
- *     summary: Soft-delete a user (sets isActive=false)
+ *     summary: Permanently delete a user and all associated data (irreversible)
+ *     description: >
+ *       Hard-deletes the user and cascade-removes all owned properties, vehicles,
+ *       service-provider profiles, bookings, wallet, transactions, notifications,
+ *       chat history, and promo-code references. Admin accounts are protected and
+ *       cannot be deleted via this endpoint.
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
@@ -451,8 +456,19 @@ router.put('/users/:id/verify', ...guard, adminController.verifyUser);
  *         name: id
  *         required: true
  *         schema: { type: string }
+ *         description: ID of the user to delete
  *     responses:
- *       200: { description: User deactivated }
+ *       200:
+ *         description: User permanently deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 deleted: { type: boolean, example: true }
+ *                 userId: { type: string }
+ *       403: { description: Cannot delete an admin account }
+ *       404: { description: User not found }
  */
 router.delete('/users/:id', ...guard, adminController.deleteUser);
 

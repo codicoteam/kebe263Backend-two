@@ -8,6 +8,9 @@ const ServiceBooking = require('../models/serviceBooking.model');
 const Wallet = require('../models/wallet.model');
 const WalletTransaction = require('../models/walletTransaction.model');
 const Notification = require('../models/notification.model');
+const ChatRoom = require('../models/chatRoom.model');
+const ChatMessage = require('../models/chatMessage.model');
+const PromoCode = require('../models/promoCode.model');
 const PlatformConfig = require('../models/platformConfig.model');
 const { invalidateCache } = require('../utils/configCache');
 
@@ -137,6 +140,38 @@ const softDeleteUser = async (userId) => {
   const user = await User.findByIdAndUpdate(userId, { isActive: false, isVerified: false }, { new: true });
   if (!user) throw { status: 404, message: 'User not found' };
   return user.toSafeObject();
+};
+
+const hardDeleteUser = async (userId) => {
+  const user = await User.findById(userId);
+  if (!user) throw { status: 404, message: 'User not found' };
+  if (user.role === 'admin') throw { status: 403, message: 'Cannot delete an admin account' };
+
+  const [walletIds, roomIds] = await Promise.all([
+    Wallet.find({ owner: userId }).distinct('_id'),
+    ChatRoom.find({ participants: userId }).distinct('_id'),
+  ]);
+
+  await Promise.all([
+    Property.deleteMany({ owner: userId }),
+    PropertyBooking.deleteMany({ $or: [{ customer: userId }, { owner: userId }] }),
+    Vehicle.deleteMany({ owner: userId }),
+    VehicleBooking.deleteMany({ $or: [{ customer: userId }, { owner: userId }] }),
+    ServiceProvider.deleteMany({ owner: userId }),
+    ServiceBooking.deleteMany({ $or: [{ customer: userId }, { provider: userId }] }),
+    WalletTransaction.deleteMany({ wallet: { $in: walletIds } }),
+    Wallet.deleteMany({ owner: userId }),
+    Notification.deleteMany({ user: userId }),
+    ChatMessage.deleteMany({ room: { $in: roomIds } }),
+    ChatRoom.deleteMany({ participants: userId }),
+    PromoCode.updateMany(
+      {},
+      { $pull: { assignedTo: userId, usedBy: { user: userId } } },
+    ),
+  ]);
+
+  await User.findByIdAndDelete(userId);
+  return { deleted: true, userId };
 };
 
 const updateKycStatus = async (adminId, userId, { kycStatus, kycComments }) => {
@@ -382,7 +417,7 @@ module.exports = {
   getAllConfig, createConfig, updateConfig,
   getCategories, addCategory, removeCategory,
   broadcastNotification, updateKycStatus, refundBooking, getAdminLocations,
-  banUser, verifyUser, softDeleteUser,
+  banUser, verifyUser, softDeleteUser, hardDeleteUser,
   rejectProperty, rejectVehicle, rejectService,
   adminDeleteProperty, adminDeleteVehicle, adminDeleteService,
   getAllPropertyBookings, getUserWallet,

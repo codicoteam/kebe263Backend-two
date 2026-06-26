@@ -109,6 +109,12 @@ const getRoomMessages = async (roomId, userId, { page = 1, limit = 20 }) => {
 };
 
 const markRoomRead = async (roomId, userId) => {
+  const room = await ChatRoom.findById(roomId).select('participants');
+  if (!room) throw { status: 404, message: 'Room not found' };
+  const user = await User.findById(userId).select('isAdmin');
+  if (!isParticipant(room, userId) && !user.isAdmin) {
+    throw { status: 403, message: 'Not a participant of this room' };
+  }
   const result = await ChatMessage.updateMany(
     { room: roomId, sender: { $ne: userId }, isRead: false },
     { isRead: true, readAt: new Date() }

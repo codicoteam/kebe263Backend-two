@@ -124,7 +124,7 @@ const verifyUser = async (req, res, next) => {
 };
 
 const deleteUser = async (req, res, next) => {
-  try { return success(res, 'User deactivated', { user: await adminService.softDeleteUser(req.params.id) }); }
+  try { return success(res, 'User permanently deleted', await adminService.hardDeleteUser(req.params.id)); }
   catch (err) { next(err); }
 };
 
