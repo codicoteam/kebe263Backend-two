@@ -18,7 +18,7 @@ const serviceProviderSchema = new mongoose.Schema(
     location: {
       city: { type: String, default: null },
       address: { type: String, default: null },
-      type: { type: String, default: 'Point' },
+      type: { type: String, default: null },
       coordinates: { type: [Number], default: undefined }, // [lng, lat] GeoJSON
     },
     isAvailable: { type: Boolean, default: true },
@@ -33,7 +33,19 @@ const serviceProviderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-serviceProviderSchema.index({ location: '2dsphere' });
+serviceProviderSchema.pre('save', function (next) {
+  if (this.location && this.location.coordinates && this.location.coordinates.length === 2) {
+    this.location.type = 'Point';
+  } else {
+    if (this.location) {
+      this.location.type = undefined;
+      this.location.coordinates = undefined;
+    }
+  }
+  next();
+});
+
+serviceProviderSchema.index({ location: '2dsphere' }, { sparse: true });
 serviceProviderSchema.index({ category: 1, isApproved: 1, isAvailable: 1, depositPaid: 1 });
 
 module.exports = mongoose.model('ServiceProvider', serviceProviderSchema);

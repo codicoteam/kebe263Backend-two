@@ -16,7 +16,7 @@ const propertySchema = new mongoose.Schema(
       city: { type: String, default: null },
       lat: { type: Number, default: null },
       lng: { type: Number, default: null },
-      type: { type: String, default: 'Point' },
+      type: { type: String, default: null },
       coordinates: { type: [Number], default: undefined }, // [lng, lat] GeoJSON — auto-set by pre-save
     },
     images: [{ type: String }],
@@ -29,11 +29,17 @@ const propertySchema = new mongoose.Schema(
 propertySchema.index({ 'location.city': 1, type: 1, category: 1, purpose: 1, isApproved: 1 });
 propertySchema.index({ location: '2dsphere' }, { sparse: true });
 
-propertySchema.pre('save', function () {
-  if (this.location && this.location.lat && this.location.lng) {
+propertySchema.pre('save', function (next) {
+  if (this.location && typeof this.location.lat === 'number' && typeof this.location.lng === 'number') {
     this.location.type = 'Point';
     this.location.coordinates = [this.location.lng, this.location.lat];
+  } else {
+    if (this.location) {
+      this.location.type = undefined;
+      this.location.coordinates = undefined;
+    }
   }
+  next();
 });
 
 module.exports = mongoose.model('Property', propertySchema);
