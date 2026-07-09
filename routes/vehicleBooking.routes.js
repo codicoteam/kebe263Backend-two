@@ -173,4 +173,10 @@ router.put('/:id/counter-offer', authenticate, isServiceProvider, vehicleBooking
 router.put('/:id/accept-counter', authenticate, vehicleBookingController.acceptCounter);
 router.put('/:id/reject-counter', authenticate, vehicleBookingController.rejectCounter);
 
+// ─── Customer counters the owner's counter-offer — negotiation stays open until
+//     either side accepts, so the owner can keep countering back. ────────────
+router.put('/:id/customer-counter-offer', authenticate, vehicleBookingController.customerCounterOffer);
+router.put('/:id/accept-customer-counter', authenticate, isServiceProvider, vehicleBookingController.acceptCustomerCounter);
+router.put('/:id/reject-customer-counter', authenticate, isServiceProvider, vehicleBookingController.rejectCustomerCounter);
+
 module.exports = router;

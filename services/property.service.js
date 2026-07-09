@@ -1,8 +1,16 @@
 const { Paynow } = require('paynow');
 const Property = require('../models/property.model');
 const PropertyBooking = require('../models/propertyBooking.model');
+const Wallet = require('../models/wallet.model');
+const WalletTransaction = require('../models/walletTransaction.model');
 const { getConfig } = require('../utils/configCache');
 const notify = require('../utils/notify');
+
+const getOrCreateWallet = async (userId, currency = 'USD') => {
+  let wallet = await Wallet.findOne({ owner: userId });
+  if (!wallet) wallet = await Wallet.create({ owner: userId, balance: 0, currency });
+  return wallet;
+};
 
 const getPaynow = () =>
   new Paynow(
@@ -123,6 +131,49 @@ const unlockProperty = async (propertyId, customer, { phone, method = 'ecocash',
 
   const UNLOCK_FEE = Number(await getConfig('unlockFee', process.env.UNLOCK_FEE || '1'));
   const reference = `PROP-${propertyId}-${customer._id}-${Date.now()}`;
+
+  // Wallet payment settles synchronously — no gateway round-trip needed.
+  if (method === 'wallet') {
+    const wallet = await getOrCreateWallet(customer._id);
+    if (wallet.balance < UNLOCK_FEE) {
+      throw { status: 400, message: `Insufficient wallet balance. You need $${UNLOCK_FEE} to unlock this property.` };
+    }
+    wallet.balance = Number((wallet.balance - UNLOCK_FEE).toFixed(2));
+    await wallet.save();
+
+    const booking = await PropertyBooking.create({
+      property: propertyId,
+      customer: customer._id,
+      paymentStatus: 'paid',
+      paymentReference: reference,
+      amountPaid: UNLOCK_FEE,
+      viewUnlocked: true,
+    });
+
+    await WalletTransaction.create({
+      wallet: wallet._id,
+      type: 'deduction',
+      amount: UNLOCK_FEE,
+      reference,
+      description: `Unlocked property "${property.title}"`,
+      status: 'completed',
+    });
+
+    notify(customer._id, 'Property Unlocked', `Full details for "${property.title}" are now available.`, 'payment');
+    notify(property.owner, 'Property Viewed', `Someone unlocked and viewed your property "${property.title}".`, 'payment');
+
+    return {
+      bookingId: booking._id,
+      reference,
+      pollUrl: null,
+      redirectUrl: null,
+      instructions: null,
+      unlocked: true,
+      amount: UNLOCK_FEE,
+      currency: 'USD',
+    };
+  }
+
   const authEmail = email || process.env.PAYNOW_MERCHANT_EMAIL || customer.email;
 
   const paynow = getPaynow();

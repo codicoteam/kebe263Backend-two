@@ -402,8 +402,9 @@ router.put('/:id/approve', authenticate, isAdmin, propertyController.approveProp
  *                 example: "0771234567"
  *               method:
  *                 type: string
- *                 enum: [ecocash, onemoney, telecash]
+ *                 enum: [ecocash, onemoney, telecash, wallet]
  *                 default: ecocash
+ *                 description: "wallet debits the customer's own KEBE wallet balance immediately — no gateway redirect, phone not required."
  *               email:
  *                 type: string
  *                 description: Override email for PayNow receipt

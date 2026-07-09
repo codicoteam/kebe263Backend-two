@@ -69,7 +69,7 @@ const getMyVehicles = async (ownerId, { page = 1, limit = 20 }) => {
 };
 
 const listVehicles = async ({ page = 1, limit = 20, type, city }) => {
-  const query = { isApproved: true, isAvailable: true };
+  const query = { isApproved: true, isAvailable: true, isDisabled: { $ne: true } };
   if (type) query.type = type;
   // city not stored on vehicle model — filter via owner city if needed in future
   const skip = (Number(page) - 1) * Number(limit);
@@ -82,7 +82,7 @@ const listVehicles = async ({ page = 1, limit = 20, type, city }) => {
 
 const getVehicleById = async (vehicleId) => {
   const vehicle = await Vehicle.findById(vehicleId).populate('owner', 'firstName lastName phone');
-  if (!vehicle || !vehicle.isApproved) throw { status: 404, message: 'Vehicle not found' };
+  if (!vehicle || !vehicle.isApproved || vehicle.isDisabled) throw { status: 404, message: 'Vehicle not found' };
   return vehicle;
 };
 
@@ -109,7 +109,7 @@ const nearbyVehicles = async ({ lat, lng, radius = 10, type, page = 1, limit = 2
 
   const radiusMeters = Number(radius) * 1000;
   const skip = (Number(page) - 1) * Number(limit);
-  const matchQuery = { isApproved: true, isAvailable: true };
+  const matchQuery = { isApproved: true, isAvailable: true, isDisabled: { $ne: true } };
   if (type) matchQuery.type = type;
 
   const geoNearStage = {

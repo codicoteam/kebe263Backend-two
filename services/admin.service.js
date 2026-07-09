@@ -270,6 +270,18 @@ const adminDeleteVehicle = async (vehicleId) => {
   if (!v) throw { status: 404, message: 'Vehicle not found' };
 };
 
+const disableVehicle = async (vehicleId) => {
+  const v = await Vehicle.findByIdAndUpdate(vehicleId, { isDisabled: true }, { new: true });
+  if (!v) throw { status: 404, message: 'Vehicle not found' };
+  return v;
+};
+
+const enableVehicle = async (vehicleId) => {
+  const v = await Vehicle.findByIdAndUpdate(vehicleId, { isDisabled: false }, { new: true });
+  if (!v) throw { status: 404, message: 'Vehicle not found' };
+  return v;
+};
+
 const adminDeleteService = async (serviceId) => {
   const s = await ServiceProvider.findByIdAndDelete(serviceId);
   if (!s) throw { status: 404, message: 'Service not found' };
@@ -420,6 +432,7 @@ module.exports = {
   banUser, verifyUser, softDeleteUser, hardDeleteUser,
   rejectProperty, rejectVehicle, rejectService,
   adminDeleteProperty, adminDeleteVehicle, adminDeleteService,
+  disableVehicle, enableVehicle,
   getAllPropertyBookings, getUserWallet,
   getOverview, getRevenueReport, getBookingReport, getUserReport,
 };

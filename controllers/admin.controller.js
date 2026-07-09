@@ -189,6 +189,22 @@ const deleteVehicle = async (req, res, next) => {
   catch (err) { next(err); }
 };
 
+const disableVehicle = async (req, res, next) => {
+  try {
+    const vehicle = await adminService.disableVehicle(req.params.id);
+    notify(vehicle.owner, 'Vehicle Disabled', `Your ${vehicle.make} ${vehicle.model} (${vehicle.plateNumber}) has been disabled by an admin and is no longer visible to customers.`, 'approval');
+    return success(res, 'Vehicle disabled', { vehicle });
+  } catch (err) { next(err); }
+};
+
+const enableVehicle = async (req, res, next) => {
+  try {
+    const vehicle = await adminService.enableVehicle(req.params.id);
+    notify(vehicle.owner, 'Vehicle Re-enabled', `Your ${vehicle.make} ${vehicle.model} (${vehicle.plateNumber}) is visible to customers again.`, 'approval');
+    return success(res, 'Vehicle enabled', { vehicle });
+  } catch (err) { next(err); }
+};
+
 const getVehicleBookings = async (req, res, next) => {
   try { return success(res, 'Vehicle bookings fetched', await vehicleBookingService.adminGetAllBookings(req.query)); }
   catch (err) { next(err); }
@@ -273,7 +289,7 @@ module.exports = {
   broadcastNotifications, updateKycStatus, processRefund, getAdminLocations,
   getUsers, getUser, banUser, verifyUser, deleteUser,
   getProperties, approveProperty, rejectProperty, deleteProperty, getPropertyBookings,
-  getVehicles, approveVehicle, rejectVehicle, deleteVehicle, getVehicleBookings, getWallets, getUserWallet,
+  getVehicles, approveVehicle, rejectVehicle, deleteVehicle, disableVehicle, enableVehicle, getVehicleBookings, getWallets, getUserWallet,
   getServices, approveService, rejectService, deleteService, getServiceBookings,
   getOverview, getRevenueReport, getBookingReport, getUserReport,
   adminGetChatRooms,

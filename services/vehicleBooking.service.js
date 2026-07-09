@@ -146,6 +146,7 @@ const counterOffer = async (bookingId, ownerId, counterPrice) => {
   if (!counterPrice || counterPrice <= 0) throw { status: 400, message: 'Counter price must be a positive number' };
 
   booking.ownerCounterPrice = counterPrice;
+  booking.customerCounterPrice = null;
   booking.priceStatus = 'counterOffered';
   const notifyCustomer = booking.customer;
   const bookingCurrency = booking.currency;
@@ -157,7 +158,7 @@ const counterOffer = async (bookingId, ownerId, counterPrice) => {
     { path: 'owner', select: 'firstName lastName phone' },
   ]);
 
-  notify(notifyCustomer, 'Driver Proposed a New Price', `Driver proposed ${bookingCurrency} ${counterPrice.toFixed(2)} — accept or decline`, 'booking');
+  notify(notifyCustomer, 'Driver Proposed a New Price', `Driver proposed ${bookingCurrency} ${counterPrice.toFixed(2)} — accept, decline, or counter back`, 'booking');
   return booking;
 };
 
@@ -189,13 +190,16 @@ const acceptCounter = async (bookingId, customerId) => {
   return booking;
 };
 
+// Declining a counter does NOT cancel the booking — negotiation stays open.
+// The owner's counter is cleared and the request reverts to the customer's
+// original offer, so the owner can accept that price outright or counter again.
 const rejectCounter = async (bookingId, customerId) => {
   const booking = await VehicleBooking.findById(bookingId);
   if (!booking) throw { status: 404, message: 'Booking not found' };
   if (booking.customer.toString() !== customerId.toString()) throw { status: 403, message: 'Not your booking' };
   if (booking.priceStatus !== 'counterOffered') throw { status: 400, message: 'No counter offer to reject' };
 
-  booking.status = 'cancelled';
+  booking.ownerCounterPrice = null;
   booking.priceStatus = 'customerOffer';
   const notifyOwner = booking.owner;
   await booking.save();
@@ -206,7 +210,85 @@ const rejectCounter = async (bookingId, customerId) => {
     { path: 'owner', select: 'firstName lastName phone' },
   ]);
 
-  notify(notifyOwner, 'Counter Offer Declined', 'Customer declined your counter offer.', 'booking');
+  notify(notifyOwner, 'Counter Offer Declined', 'Customer declined your counter offer — you can propose a new price or accept their original offer.', 'booking');
+  return booking;
+};
+
+// Customer counters the owner's counter-offer with their own price.
+const customerCounterOffer = async (bookingId, customerId, counterPrice) => {
+  const booking = await VehicleBooking.findById(bookingId);
+  if (!booking) throw { status: 404, message: 'Booking not found' };
+  if (booking.customer.toString() !== customerId.toString()) throw { status: 403, message: 'Not your booking' };
+  if (booking.status !== 'pending') throw { status: 400, message: `Cannot counter offer a booking with status: ${booking.status}` };
+  if (booking.priceStatus !== 'counterOffered') throw { status: 400, message: 'No owner counter offer to respond to' };
+  if (!counterPrice || counterPrice <= 0) throw { status: 400, message: 'Counter price must be a positive number' };
+
+  booking.customerCounterPrice = counterPrice;
+  booking.priceStatus = 'customerCountered';
+  const notifyOwner = booking.owner;
+  const bookingCurrency = booking.currency;
+  await booking.save();
+
+  await booking.populate([
+    { path: 'vehicle', select: 'make model year color plateNumber type images' },
+    { path: 'customer', select: 'firstName lastName phone email' },
+    { path: 'owner', select: 'firstName lastName phone' },
+  ]);
+
+  notify(notifyOwner, 'Customer Proposed a New Price', `Customer countered with ${bookingCurrency} ${counterPrice.toFixed(2)} — accept, decline, or counter again`, 'booking');
+  return booking;
+};
+
+// Owner accepts the customer's counter-offer.
+const acceptCustomerCounter = async (bookingId, ownerId) => {
+  const booking = await VehicleBooking.findById(bookingId);
+  if (!booking) throw { status: 404, message: 'Booking not found' };
+  if (booking.owner.toString() !== ownerId.toString()) throw { status: 403, message: 'Not your booking' };
+  if (booking.priceStatus !== 'customerCountered') throw { status: 400, message: 'No customer counter offer to accept' };
+
+  booking.agreedPrice = booking.customerCounterPrice;
+  booking.priceStatus = 'agreed';
+  booking.status = 'accepted';
+
+  const globalFee3 = await getConfig('platformFeePercent', process.env.PLATFORM_FEE_PERCENT || '10');
+  const feePercent = Number(await getConfig('vehiclePlatformFeePercent', globalFee3));
+  const wallet = await getOrCreateWallet(booking.owner, booking.currency);
+  await reservePlatformFee(booking, wallet, feePercent);
+
+  const notifyCustomer = booking.customer;
+  await booking.save();
+
+  await booking.populate([
+    { path: 'vehicle', select: 'make model year color plateNumber type images' },
+    { path: 'customer', select: 'firstName lastName phone email' },
+    { path: 'owner', select: 'firstName lastName phone' },
+  ]);
+
+  notify(notifyCustomer, 'Counter Offer Accepted', 'The driver accepted your counter offer. Proceed to pickup.', 'booking');
+  return booking;
+};
+
+// Owner declines the customer's counter — their own last counter stands,
+// negotiation stays open (owner can counter again or accept the customer's
+// original offer since neither party has cancelled).
+const rejectCustomerCounter = async (bookingId, ownerId) => {
+  const booking = await VehicleBooking.findById(bookingId);
+  if (!booking) throw { status: 404, message: 'Booking not found' };
+  if (booking.owner.toString() !== ownerId.toString()) throw { status: 403, message: 'Not your booking' };
+  if (booking.priceStatus !== 'customerCountered') throw { status: 400, message: 'No customer counter offer to reject' };
+
+  booking.customerCounterPrice = null;
+  booking.priceStatus = 'counterOffered';
+  const notifyCustomer = booking.customer;
+  await booking.save();
+
+  await booking.populate([
+    { path: 'vehicle', select: 'make model year color plateNumber type images' },
+    { path: 'customer', select: 'firstName lastName phone email' },
+    { path: 'owner', select: 'firstName lastName phone' },
+  ]);
+
+  notify(notifyCustomer, 'Counter Offer Declined', 'The driver declined your counter — their previous price still stands. You can accept it or counter again.', 'booking');
   return booking;
 };
 
@@ -470,4 +552,8 @@ const claimOpenRideRequest = async (bookingId, ownerId) => {
   ]);
 };
 
-module.exports = { createBooking, createOpenRideRequest, getOpenRideRequests, claimOpenRideRequest, acceptBooking, counterOffer, acceptCounter, rejectCounter, startRide, completeBooking, cancelBooking, adminGetAllBookings, getOwnerBookings, getBookingById, getCustomerBookings };
+module.exports = {
+  createBooking, createOpenRideRequest, getOpenRideRequests, claimOpenRideRequest, acceptBooking,
+  counterOffer, acceptCounter, rejectCounter, customerCounterOffer, acceptCustomerCounter, rejectCustomerCounter,
+  startRide, completeBooking, cancelBooking, adminGetAllBookings, getOwnerBookings, getBookingById, getCustomerBookings,
+};

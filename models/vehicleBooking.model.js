@@ -39,7 +39,12 @@ const vehicleBookingSchema = new mongoose.Schema(
     transportItems: { type: String, default: null },
     customerOfferedPrice: { type: Number, default: 0 },
     ownerCounterPrice: { type: Number, default: null },
-    priceStatus: { type: String, enum: ['customerOffer', 'counterOffered', 'agreed'], default: 'customerOffer' },
+    customerCounterPrice: { type: Number, default: null },
+    priceStatus: {
+      type: String,
+      enum: ['customerOffer', 'counterOffered', 'customerCountered', 'agreed'],
+      default: 'customerOffer',
+    },
   },
   { timestamps: true }
 );

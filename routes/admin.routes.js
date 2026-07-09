@@ -667,6 +667,44 @@ router.delete('/vehicles/:id', ...guard, adminController.deleteVehicle);
 
 /**
  * @swagger
+ * /api/admin/vehicles/{id}/disable:
+ *   put:
+ *     summary: Disable a vehicle listing — hides it from customers without deleting it, notifies owner
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Vehicle disabled }
+ *       404: { description: Vehicle not found }
+ */
+router.put('/vehicles/:id/disable', ...guard, adminController.disableVehicle);
+
+/**
+ * @swagger
+ * /api/admin/vehicles/{id}/enable:
+ *   put:
+ *     summary: Re-enable a previously disabled vehicle listing — notifies owner
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Vehicle enabled }
+ *       404: { description: Vehicle not found }
+ */
+router.put('/vehicles/:id/enable', ...guard, adminController.enableVehicle);
+
+/**
+ * @swagger
  * /api/admin/bookings/vehicle:
  *   get:
  *     summary: Get all vehicle bookings

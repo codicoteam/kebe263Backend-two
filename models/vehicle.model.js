@@ -27,6 +27,7 @@ const vehicleSchema = new mongoose.Schema(
     nationalIdImage: { type: String, default: null },
     isAvailable: { type: Boolean, default: true },
     isApproved: { type: Boolean, default: false },
+    isDisabled: { type: Boolean, default: false }, // admin-controlled; distinct from owner's isAvailable toggle
     currentLocation: {
       lat: { type: Number, default: null },
       lng: { type: Number, default: null },
