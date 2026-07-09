@@ -5,7 +5,10 @@ const ServiceBooking = require('../models/serviceBooking.model');
 const User = require('../models/user.model');
 
 const isParticipant = (room, userId) =>
-  room.participants.some((p) => p.toString() === userId.toString());
+  room.participants.some((p) => {
+    const pId = p && typeof p === 'object' && p._id ? p._id.toString() : p.toString();
+    return pId === userId.toString();
+  });
 
 // Called by booking services immediately after booking creation
 const createOrGetRoomForBooking = async (bookingType, bookingId, participantIds) => {
