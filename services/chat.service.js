@@ -177,6 +177,20 @@ const markRoomRead = async (roomId, userId) => {
   return result.modifiedCount;
 };
 
+// Soft delete — isActive: false hides the room from getMyRooms for everyone.
+// There's no per-participant hidden state in the schema, so this is a shared
+// archive rather than "delete for me only."
+const deleteRoom = async (roomId, userId) => {
+  const room = await ChatRoom.findById(roomId);
+  if (!room) throw { status: 404, message: 'Room not found' };
+  const user = await User.findById(userId).select('isAdmin');
+  if (!isParticipant(room, userId) && !user.isAdmin) {
+    throw { status: 403, message: 'Not a participant of this room' };
+  }
+  room.isActive = false;
+  await room.save();
+};
+
 const getUnreadCount = async (userId) => {
   const rooms = await ChatRoom.find({ participants: userId, isActive: true }).select('_id');
   const roomIds = rooms.map((r) => r._id);
@@ -249,6 +263,7 @@ module.exports = {
   getRoomById,
   getRoomMessages,
   markRoomRead,
+  deleteRoom,
   getUnreadCount,
   createSupportRoom,
   adminGetAllRooms,

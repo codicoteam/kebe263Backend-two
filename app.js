@@ -139,6 +139,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/upload', require('./routes/upload.routes'));
 app.use('/api/reviews', require('./routes/review.routes'));
 app.use('/api/reports', require('./routes/report.routes'));
+app.use('/api/categories', require('./routes/category.routes'));
 app.use('/api/debug', debugRoutes);
 app.get('/', (req, res) => {
   res.json({

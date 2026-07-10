@@ -288,6 +288,29 @@ router.get('/rooms/:roomId/messages', authenticate, chatController.getRoomMessag
 
 /**
  * @swagger
+ * /api/chat/rooms/{roomId}:
+ *   delete:
+ *     summary: Delete (soft-archive) a chat room — hides it from both participants' room lists
+ *     tags: [Chat]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: roomId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Conversation deleted
+ *       403:
+ *         description: Not a participant
+ *       404:
+ *         description: Room not found
+ */
+router.delete('/rooms/:roomId', authenticate, chatController.deleteRoom);
+
+/**
+ * @swagger
  * /api/chat/rooms/{roomId}/read:
  *   put:
  *     summary: Mark all messages in a room as read via REST

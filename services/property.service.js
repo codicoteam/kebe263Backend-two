@@ -6,6 +6,7 @@ const WalletTransaction = require('../models/walletTransaction.model');
 const { getConfig } = require('../utils/configCache');
 const notify = require('../utils/notify');
 const changeRequest = require('./listingChangeRequest.service');
+const promoService = require('./promoCode.service');
 
 const PROPERTY_EDITABLE_FIELDS = ['title', 'description', 'type', 'category', 'purpose', 'price', 'currency', 'rooms', 'location', 'images'];
 
@@ -136,7 +137,7 @@ const getPropertyById = async (propertyId, userId) => {
   return { ...obj, viewUnlocked };
 };
 
-const unlockProperty = async (propertyId, customer, { phone, method = 'ecocash', email }) => {
+const unlockProperty = async (propertyId, customer, { phone, method = 'ecocash', email, promoCode }) => {
   const property = await Property.findById(propertyId);
   if (!property || !property.isApproved) throw { status: 404, message: 'Property not found' };
 
@@ -146,13 +147,56 @@ const unlockProperty = async (propertyId, customer, { phone, method = 'ecocash',
   const UNLOCK_FEE = Number(await getConfig('unlockFee', process.env.UNLOCK_FEE || '1'));
   const reference = `PROP-${propertyId}-${customer._id}-${Date.now()}`;
 
+  let finalFee = UNLOCK_FEE;
+  let discountAmount = 0;
+  let promoCodeId = null;
+  if (promoCode) {
+    const promoResult = await promoService.applyPromoCode(promoCode, customer._id, UNLOCK_FEE, 'property');
+    discountAmount = promoResult.discountAmount;
+    finalFee = promoResult.finalAmount;
+    promoCodeId = promoResult.promoId;
+  }
+  const promoFields = {
+    promoCode: promoCode ? promoCode.toUpperCase() : null,
+    promoCodeId,
+    discountAmount,
+    originalAmount: UNLOCK_FEE,
+  };
+
+  // A promo code covering the full fee unlocks instantly — no payment of any kind needed.
+  if (finalFee <= 0) {
+    const booking = await PropertyBooking.create({
+      property: propertyId,
+      customer: customer._id,
+      paymentStatus: 'paid',
+      paymentReference: reference,
+      amountPaid: 0,
+      viewUnlocked: true,
+      ...promoFields,
+    });
+
+    notify(customer._id, 'Property Unlocked', `Full details for "${property.title}" are now available — free with promo code ${promoFields.promoCode}.`, 'payment');
+    notify(property.owner, 'Property Viewed', `Someone unlocked and viewed your property "${property.title}".`, 'payment');
+
+    return {
+      bookingId: booking._id,
+      reference,
+      pollUrl: null,
+      redirectUrl: null,
+      instructions: null,
+      unlocked: true,
+      amount: 0,
+      currency: 'USD',
+    };
+  }
+
   // Wallet payment settles synchronously — no gateway round-trip needed.
   if (method === 'wallet') {
     const wallet = await getOrCreateWallet(customer._id);
-    if (wallet.balance < UNLOCK_FEE) {
-      throw { status: 400, message: `Insufficient wallet balance. You need $${UNLOCK_FEE} to unlock this property.` };
+    if (wallet.balance < finalFee) {
+      throw { status: 400, message: `Insufficient wallet balance. You need $${finalFee} to unlock this property.` };
     }
-    wallet.balance = Number((wallet.balance - UNLOCK_FEE).toFixed(2));
+    wallet.balance = Number((wallet.balance - finalFee).toFixed(2));
     await wallet.save();
 
     const booking = await PropertyBooking.create({
@@ -160,14 +204,15 @@ const unlockProperty = async (propertyId, customer, { phone, method = 'ecocash',
       customer: customer._id,
       paymentStatus: 'paid',
       paymentReference: reference,
-      amountPaid: UNLOCK_FEE,
+      amountPaid: finalFee,
       viewUnlocked: true,
+      ...promoFields,
     });
 
     await WalletTransaction.create({
       wallet: wallet._id,
       type: 'deduction',
-      amount: UNLOCK_FEE,
+      amount: finalFee,
       reference,
       description: `Unlocked property "${property.title}"`,
       status: 'completed',
@@ -183,7 +228,7 @@ const unlockProperty = async (propertyId, customer, { phone, method = 'ecocash',
       redirectUrl: null,
       instructions: null,
       unlocked: true,
-      amount: UNLOCK_FEE,
+      amount: finalFee,
       currency: 'USD',
     };
   }
@@ -192,7 +237,7 @@ const unlockProperty = async (propertyId, customer, { phone, method = 'ecocash',
 
   const paynow = getPaynow();
   const payment = paynow.createPayment(reference, authEmail);
-  payment.add(`Unlock: ${property.title}`, UNLOCK_FEE);
+  payment.add(`Unlock: ${property.title}`, finalFee);
 
   // Save pending booking before initiating — reference is needed by webhook
   const booking = await PropertyBooking.create({
@@ -200,8 +245,9 @@ const unlockProperty = async (propertyId, customer, { phone, method = 'ecocash',
     customer: customer._id,
     paymentStatus: 'pending',
     paymentReference: reference,
-    amountPaid: UNLOCK_FEE,
+    amountPaid: finalFee,
     viewUnlocked: false,
+    ...promoFields,
   });
 
   let resp;
@@ -229,7 +275,7 @@ const unlockProperty = async (propertyId, customer, { phone, method = 'ecocash',
     pollUrl: resp.pollUrl || null,
     redirectUrl: resp.redirectUrl || null,
     instructions: resp.instructions || null,
-    amount: UNLOCK_FEE,
+    amount: finalFee,
     currency: 'USD',
   };
 };

@@ -459,6 +459,12 @@ router.put('/:id/approve', authenticate, isAdmin, propertyController.approveProp
  *               email:
  *                 type: string
  *                 description: Override email for PayNow receipt
+ *               promoCode:
+ *                 type: string
+ *                 description: >
+ *                   Optional promo code to discount the unlock fee. A code covering the
+ *                   full fee unlocks instantly with no payment step at all (amount: 0).
+ *                 example: FREEVIEW
  *     responses:
  *       200:
  *         description: Payment initiated — follow redirectUrl or instructions to complete

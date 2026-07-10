@@ -12,6 +12,10 @@ const propertyBookingSchema = new mongoose.Schema(
     refundReason: { type: String, default: null },
     refundedAt: { type: Date, default: null },
     viewUnlocked: { type: Boolean, default: false },
+    promoCode: { type: String, default: null },
+    promoCodeId: { type: mongoose.Schema.Types.ObjectId, ref: 'PromoCode', default: null },
+    discountAmount: { type: Number, default: 0 },
+    originalAmount: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

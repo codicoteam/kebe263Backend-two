@@ -43,6 +43,13 @@ const getUnreadCount = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const deleteRoom = async (req, res, next) => {
+  try {
+    await chatService.deleteRoom(req.params.roomId, req.user._id);
+    return success(res, 'Conversation deleted');
+  } catch (err) { next(err); }
+};
+
 const createSupportRoom = async (req, res, next) => {
   try {
     const room = await chatService.createSupportRoom(req.user._id, req.body);
@@ -50,4 +57,4 @@ const createSupportRoom = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { getOrCreateRoom, getMyRooms, getRoomMessages, getRoomById, markRoomRead, getUnreadCount, createSupportRoom };
+module.exports = { getOrCreateRoom, getMyRooms, getRoomMessages, getRoomById, markRoomRead, deleteRoom, getUnreadCount, createSupportRoom };
