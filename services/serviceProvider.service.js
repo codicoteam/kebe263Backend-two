@@ -2,6 +2,23 @@ const { Paynow } = require('paynow');
 const ServiceProvider = require('../models/serviceProvider.model');
 const AppConfig = require('../models/appConfig.model');
 const { getConfig } = require('../utils/configCache');
+const changeRequest = require('./listingChangeRequest.service');
+
+const SERVICE_EDITABLE_FIELDS = ['businessName', 'category', 'description', 'estimatedPrice', 'currency', 'priceUnit', 'profileImage', 'portfolioImages', 'location'];
+
+// Service location is stored as GeoJSON {type, coordinates}, but callers pass
+// {lng, lat} — normalize before it goes into pendingChange or gets applied.
+const normalizeServiceLocation = (data) => {
+  if (!data.location?.lng || !data.location?.lat) return data;
+  return {
+    ...data,
+    location: {
+      ...data.location,
+      type: 'Point',
+      coordinates: [Number(data.location.lng), Number(data.location.lat)],
+    },
+  };
+};
 
 const getPaynow = () =>
   new Paynow(
@@ -53,6 +70,9 @@ const updateService = async (serviceId, ownerId, data) => {
   const service = await ServiceProvider.findById(serviceId);
   if (!service) throw { status: 404, message: 'Service not found' };
   if (service.owner.toString() !== ownerId.toString()) throw { status: 403, message: 'You can only edit your own services' };
+  if (service.isApproved) {
+    throw { status: 400, message: 'This service is already approved — use request-change instead of editing it directly' };
+  }
 
   const allowed = ['businessName', 'category', 'description', 'estimatedPrice', 'currency', 'priceUnit', 'profileImage', 'portfolioImages', 'isAvailable'];
   for (const key of allowed) {
@@ -68,12 +88,21 @@ const updateService = async (serviceId, ownerId, data) => {
     service.location = { ...service.location.toObject?.() ?? service.location, ...loc };
   }
 
-  const coreChanged = ['businessName', 'category', 'description'].some((k) => data[k] !== undefined);
-  if (coreChanged) service.isApproved = false;
-
   await service.save();
   return service;
 };
+
+const requestServiceChange = (serviceId, ownerId, data) =>
+  changeRequest.requestChange(ServiceProvider, serviceId, ownerId, SERVICE_EDITABLE_FIELDS, normalizeServiceLocation(data));
+
+const approveServiceChange = (serviceId) =>
+  changeRequest.approveChange(ServiceProvider, serviceId, SERVICE_EDITABLE_FIELDS);
+
+const rejectServiceChange = (serviceId) =>
+  changeRequest.rejectChange(ServiceProvider, serviceId);
+
+const ownerDisableService = (serviceId, ownerId, disabled) =>
+  changeRequest.ownerDisable(ServiceProvider, serviceId, ownerId, disabled);
 
 const deleteService = async (serviceId, ownerId) => {
   const service = await ServiceProvider.findById(serviceId);
@@ -94,7 +123,7 @@ const getMyServices = async (ownerId, { page = 1, limit = 20 }) => {
 // ─── Browse & Search ──────────────────────────────────────────────────────────
 
 const listServices = async ({ page = 1, limit = 20, category, city, currency }) => {
-  const query = { isApproved: true, isAvailable: true, depositPaid: true };
+  const query = { isApproved: true, isAvailable: true, depositPaid: true, isDisabled: { $ne: true } };
   if (category) query.category = category;
   if (city) query['location.city'] = { $regex: city, $options: 'i' };
   if (currency) query.currency = currency;
@@ -113,7 +142,7 @@ const nearbySearch = async ({ lat, lng, radius = 10, category, page = 1, limit =
   const radiusMeters = Number(radius) * 1000;
   const skip = (Number(page) - 1) * Number(limit);
 
-  const matchQuery = { isApproved: true, isAvailable: true, depositPaid: true };
+  const matchQuery = { isApproved: true, isAvailable: true, depositPaid: true, isDisabled: { $ne: true } };
   if (category) matchQuery.category = category;
 
   const geoNearStage = {
@@ -149,7 +178,7 @@ const nearbySearch = async ({ lat, lng, radius = 10, category, page = 1, limit =
 
 const getServiceById = async (serviceId, { lat, lng } = {}) => {
   const service = await ServiceProvider.findById(serviceId).populate('owner', 'firstName lastName phone email');
-  if (!service || !service.isApproved || !service.depositPaid) throw { status: 404, message: 'Service not found' };
+  if (!service || !service.isApproved || !service.depositPaid || service.isDisabled) throw { status: 404, message: 'Service not found' };
 
   const obj = service.toObject();
   if (lat && lng && obj.location?.coordinates?.length === 2) {
@@ -254,7 +283,8 @@ const approveService = async (serviceId) => {
 
 const adminGetAllServices = async ({ page = 1, limit = 20, isApproved, category, depositPaid }) => {
   const query = {};
-  if (isApproved !== undefined) query.isApproved = isApproved === 'true';
+  if (isApproved === 'false') query.$or = [{ isApproved: false }, { 'pendingChange.data': { $ne: null } }];
+  else if (isApproved !== undefined) query.isApproved = isApproved === 'true';
   if (depositPaid !== undefined) query.depositPaid = depositPaid === 'true';
   if (category) query.category = category;
 
@@ -271,4 +301,5 @@ module.exports = {
   listServices, nearbySearch, getServiceById,
   payDeposit, handleDepositWebhook, checkDepositStatus,
   approveService, adminGetAllServices,
+  requestServiceChange, approveServiceChange, rejectServiceChange, ownerDisableService,
 };

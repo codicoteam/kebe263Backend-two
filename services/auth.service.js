@@ -5,6 +5,16 @@ const generateToken = require('../utils/generateToken');
 const { sendEmail, otpEmailTemplate } = require('../utils/sendEmail');
 
 const OTP_EXPIRY_MS = (Number(process.env.OTP_EXPIRY_MINUTES) || 10) * 60 * 1000;
+const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
+
+const checkUsername = async (rawUsername) => {
+  const username = String(rawUsername || '').trim().toLowerCase();
+  if (!USERNAME_PATTERN.test(username)) {
+    return { available: false, reason: '3-20 characters: lowercase letters, numbers, and underscores only' };
+  }
+  const existing = await User.findOne({ username });
+  return { available: !existing };
+};
 
 const saveAndSendOTP = async (user, purpose = 'verification') => {
   const otp = generateOTP();
@@ -21,9 +31,16 @@ const saveAndSendOTP = async (user, purpose = 'verification') => {
   return otp;
 };
 
-const register = async ({ firstName, lastName, email, phone, password, roles }) => {
+const register = async ({ firstName, lastName, email, phone, password, roles, username }) => {
   const existing = await User.findOne({ email });
   if (existing) throw { status: 409, message: 'An account with this email already exists' };
+
+  const normalizedUsername = String(username || '').trim().toLowerCase();
+  if (!USERNAME_PATTERN.test(normalizedUsername)) {
+    throw { status: 400, message: 'Username must be 3-20 characters: lowercase letters, numbers, and underscores only' };
+  }
+  const usernameTaken = await User.findOne({ username: normalizedUsername });
+  if (usernameTaken) throw { status: 409, message: 'That username is already taken' };
 
   const validRoles = (roles || []).filter((r) => ['customer', 'serviceProvider'].includes(r));
   const hashed = await bcrypt.hash(password, 12);
@@ -35,6 +52,7 @@ const register = async ({ firstName, lastName, email, phone, password, roles }) 
     phone,
     password: hashed,
     roles: validRoles,
+    username: normalizedUsername,
   });
 
   await saveAndSendOTP(user, 'verification');
@@ -104,4 +122,22 @@ const resetPassword = async ({ email, otp, newPassword }) => {
   return { message: 'Password reset successfully. You can now log in.' };
 };
 
-module.exports = { register, verifyOtp, login, resendOtp, forgotPassword, resetPassword };
+const claimUsername = async (userId, rawUsername) => {
+  const normalizedUsername = String(rawUsername || '').trim().toLowerCase();
+  if (!USERNAME_PATTERN.test(normalizedUsername)) {
+    throw { status: 400, message: 'Username must be 3-20 characters: lowercase letters, numbers, and underscores only' };
+  }
+  const usernameTaken = await User.findOne({ username: normalizedUsername, _id: { $ne: userId } });
+  if (usernameTaken) throw { status: 409, message: 'That username is already taken' };
+
+  const user = await User.findById(userId);
+  if (!user) throw { status: 404, message: 'User not found' };
+
+  user.username = normalizedUsername;
+  user.usernamePlaceholder = false;
+  await user.save({ validateModifiedOnly: true });
+
+  return { user: user.toSafeObject() };
+};
+
+module.exports = { register, verifyOtp, login, resendOtp, forgotPassword, resetPassword, checkUsername, claimUsername };

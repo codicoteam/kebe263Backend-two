@@ -43,6 +43,16 @@ const changePassword = async (req, res, next) => {
   }
 };
 
+const searchUsers = async (req, res, next) => {
+  try {
+    const { q } = req.query;
+    const result = await userService.searchUsers(req.user._id, q);
+    return success(res, 'Users fetched', result);
+  } catch (err) {
+    next(err);
+  }
+};
+
 // Admin controllers
 const getAllUsers = async (req, res, next) => {
   try {
@@ -156,4 +166,4 @@ const removeFavorite = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { getMe, updateMe, changeRole, changePassword, getAllUsers, getUserById, updateUser, deleteUser, activateUser, deactivateUser, registerFcmToken, removeFcmToken, getFavorites, addFavorite, removeFavorite };
+module.exports = { getMe, updateMe, changeRole, changePassword, getAllUsers, getUserById, updateUser, deleteUser, activateUser, deactivateUser, registerFcmToken, removeFcmToken, getFavorites, addFavorite, removeFavorite, searchUsers };

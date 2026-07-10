@@ -8,6 +8,7 @@ const ServiceBooking = require('../models/serviceBooking.model');
 const Wallet = require('../models/wallet.model');
 const WalletTransaction = require('../models/walletTransaction.model');
 const Notification = require('../models/notification.model');
+const Broadcast = require('../models/broadcast.model');
 const ChatRoom = require('../models/chatRoom.model');
 const ChatMessage = require('../models/chatMessage.model');
 const PromoCode = require('../models/promoCode.model');
@@ -92,13 +93,21 @@ const removeCategory = async (adminId, entity, value) => {
   return { key: config.key, categories: await getCategoryConfig(entity) };
 };
 
-const broadcastNotification = async (title, message, type = 'system', role = null) => {
+const broadcastNotification = async (adminId, title, message, type = 'system', role = null) => {
   const query = { isActive: true };
   if (role) query.roles = role;
   const recipients = await User.find(query).select('+fcmTokens');
+
+  const broadcast = await Broadcast.create({
+    title,
+    message,
+    audience: role || 'all',
+    createdBy: adminId,
+  });
+
   if (!recipients.length) return [];
 
-  const notifications = recipients.map((r) => ({ recipient: r._id, title, message, type }));
+  const notifications = recipients.map((r) => ({ recipient: r._id, title, message, type, broadcastId: broadcast._id }));
   const result = await Notification.insertMany(notifications);
 
   const allTokens = recipients.flatMap((r) => r.fcmTokens || []);
@@ -282,6 +291,30 @@ const enableVehicle = async (vehicleId) => {
   return v;
 };
 
+const disableProperty = async (propertyId) => {
+  const p = await Property.findByIdAndUpdate(propertyId, { isDisabled: true }, { new: true });
+  if (!p) throw { status: 404, message: 'Property not found' };
+  return p;
+};
+
+const enableProperty = async (propertyId) => {
+  const p = await Property.findByIdAndUpdate(propertyId, { isDisabled: false }, { new: true });
+  if (!p) throw { status: 404, message: 'Property not found' };
+  return p;
+};
+
+const disableService = async (serviceId) => {
+  const s = await ServiceProvider.findByIdAndUpdate(serviceId, { isDisabled: true }, { new: true });
+  if (!s) throw { status: 404, message: 'Service not found' };
+  return s;
+};
+
+const enableService = async (serviceId) => {
+  const s = await ServiceProvider.findByIdAndUpdate(serviceId, { isDisabled: false }, { new: true });
+  if (!s) throw { status: 404, message: 'Service not found' };
+  return s;
+};
+
 const adminDeleteService = async (serviceId) => {
   const s = await ServiceProvider.findByIdAndDelete(serviceId);
   if (!s) throw { status: 404, message: 'Service not found' };
@@ -433,6 +466,8 @@ module.exports = {
   rejectProperty, rejectVehicle, rejectService,
   adminDeleteProperty, adminDeleteVehicle, adminDeleteService,
   disableVehicle, enableVehicle,
+  disableProperty, enableProperty,
+  disableService, enableService,
   getAllPropertyBookings, getUserWallet,
   getOverview, getRevenueReport, getBookingReport, getUserReport,
 };

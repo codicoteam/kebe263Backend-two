@@ -131,6 +131,28 @@ router.get('/me/favorites', authenticate, userController.getFavorites);
 router.post('/me/favorites', authenticate, userController.addFavorite);
 router.delete('/me/favorites/:listingId', authenticate, userController.removeFavorite);
 
+/**
+ * @swagger
+ * /api/users/search:
+ *   get:
+ *     summary: Search users by username (prefix match) for starting a chat; known contacts (shared booking history) can also be matched by real name
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Matching users
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/search', authenticate, userController.searchUsers);
+
 // ─── Admin routes ─────────────────────────────────────────────────────────────
 
 /**

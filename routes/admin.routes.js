@@ -562,6 +562,80 @@ router.delete('/properties/:id', ...guard, adminController.deleteProperty);
 
 /**
  * @swagger
+ * /api/admin/properties/{id}/approve-change:
+ *   put:
+ *     summary: Approve a pending change request on an already-approved property — merges the proposed data live and re-enables the listing
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Change approved }
+ *       400: { description: No pending change to approve }
+ */
+router.put('/properties/:id/approve-change', ...guard, adminController.approvePropertyChange);
+
+/**
+ * @swagger
+ * /api/admin/properties/{id}/reject-change:
+ *   put:
+ *     summary: Reject a pending change request — listing stays disabled
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Change rejected }
+ *       400: { description: No pending change to reject }
+ */
+router.put('/properties/:id/reject-change', ...guard, adminController.rejectPropertyChange);
+
+/**
+ * @swagger
+ * /api/admin/properties/{id}/disable:
+ *   put:
+ *     summary: Disable a property listing — hides it from customers without deleting it
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Property disabled }
+ */
+router.put('/properties/:id/disable', ...guard, adminController.disableProperty);
+
+/**
+ * @swagger
+ * /api/admin/properties/{id}/enable:
+ *   put:
+ *     summary: Re-enable a previously disabled property listing
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Property enabled }
+ */
+router.put('/properties/:id/enable', ...guard, adminController.enableProperty);
+
+/**
+ * @swagger
  * /api/admin/bookings/property:
  *   get:
  *     summary: Get all property bookings
@@ -702,6 +776,44 @@ router.put('/vehicles/:id/disable', ...guard, adminController.disableVehicle);
  *       404: { description: Vehicle not found }
  */
 router.put('/vehicles/:id/enable', ...guard, adminController.enableVehicle);
+
+/**
+ * @swagger
+ * /api/admin/vehicles/{id}/approve-change:
+ *   put:
+ *     summary: Approve a pending change request on an already-approved vehicle
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Change approved }
+ *       400: { description: No pending change to approve }
+ */
+router.put('/vehicles/:id/approve-change', ...guard, adminController.approveVehicleChange);
+
+/**
+ * @swagger
+ * /api/admin/vehicles/{id}/reject-change:
+ *   put:
+ *     summary: Reject a pending change request — vehicle stays disabled
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Change rejected }
+ *       400: { description: No pending change to reject }
+ */
+router.put('/vehicles/:id/reject-change', ...guard, adminController.rejectVehicleChange);
 
 /**
  * @swagger
@@ -855,6 +967,80 @@ router.put('/services/:id/reject', ...guard, adminController.rejectService);
  *       200: { description: Service deleted }
  */
 router.delete('/services/:id', ...guard, adminController.deleteService);
+
+/**
+ * @swagger
+ * /api/admin/services/{id}/approve-change:
+ *   put:
+ *     summary: Approve a pending change request on an already-approved service
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Change approved }
+ *       400: { description: No pending change to approve }
+ */
+router.put('/services/:id/approve-change', ...guard, adminController.approveServiceChange);
+
+/**
+ * @swagger
+ * /api/admin/services/{id}/reject-change:
+ *   put:
+ *     summary: Reject a pending change request — service stays disabled
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Change rejected }
+ *       400: { description: No pending change to reject }
+ */
+router.put('/services/:id/reject-change', ...guard, adminController.rejectServiceChange);
+
+/**
+ * @swagger
+ * /api/admin/services/{id}/disable:
+ *   put:
+ *     summary: Disable a service listing — hides it from customers without deleting it
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Service disabled }
+ */
+router.put('/services/:id/disable', ...guard, adminController.disableService);
+
+/**
+ * @swagger
+ * /api/admin/services/{id}/enable:
+ *   put:
+ *     summary: Re-enable a previously disabled service listing
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Service enabled }
+ */
+router.put('/services/:id/enable', ...guard, adminController.enableService);
 
 /**
  * @swagger

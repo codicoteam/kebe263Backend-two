@@ -1,4 +1,8 @@
 const Vehicle = require('../models/vehicle.model');
+const changeRequest = require('./listingChangeRequest.service');
+
+const VEHICLE_EDITABLE_FIELDS = ['make', 'model', 'year', 'color', 'plateNumber', 'type', 'capacityKg', 'capacityPassengers',
+  'pricePerKm', 'currency', 'images', 'ownerFullName', 'ownerIdNumber', 'driverLicenceFront', 'driverLicenceBack', 'nationalIdImage'];
 
 const createVehicle = async (ownerId, data) => {
   const { make, model, year, color, plateNumber, type, pricePerKm, currency, images, capacityKg, capacityPassengers,
@@ -35,20 +39,30 @@ const updateVehicle = async (vehicleId, ownerId, data) => {
   if (vehicle.owner.toString() !== ownerId.toString()) {
     throw { status: 403, message: 'You can only edit your own vehicles' };
   }
+  if (vehicle.isApproved) {
+    throw { status: 400, message: 'This vehicle is already approved — use request-change instead of editing it directly' };
+  }
 
-  const allowed = ['make', 'model', 'year', 'color', 'plateNumber', 'type', 'capacityKg', 'capacityPassengers',
-    'pricePerKm', 'currency', 'images', 'isAvailable',
-    'ownerFullName', 'ownerIdNumber', 'driverLicenceFront', 'driverLicenceBack', 'nationalIdImage'];
+  const allowed = [...VEHICLE_EDITABLE_FIELDS, 'isAvailable'];
   for (const key of allowed) {
     if (data[key] !== undefined) vehicle[key] = data[key];
   }
 
-  const coreChanged = ['make', 'model', 'plateNumber', 'year'].some((k) => data[k] !== undefined);
-  if (coreChanged) vehicle.isApproved = false;
-
   await vehicle.save();
   return vehicle;
 };
+
+const requestVehicleChange = (vehicleId, ownerId, data) =>
+  changeRequest.requestChange(Vehicle, vehicleId, ownerId, VEHICLE_EDITABLE_FIELDS, data);
+
+const approveVehicleChange = (vehicleId) =>
+  changeRequest.approveChange(Vehicle, vehicleId, VEHICLE_EDITABLE_FIELDS);
+
+const rejectVehicleChange = (vehicleId) =>
+  changeRequest.rejectChange(Vehicle, vehicleId);
+
+const ownerDisableVehicle = (vehicleId, ownerId, disabled) =>
+  changeRequest.ownerDisable(Vehicle, vehicleId, ownerId, disabled);
 
 const deleteVehicle = async (vehicleId, ownerId) => {
   const vehicle = await Vehicle.findById(vehicleId);
@@ -94,7 +108,11 @@ const approveVehicle = async (vehicleId) => {
 
 const adminGetAllVehicles = async ({ page = 1, limit = 20, isApproved, type }) => {
   const query = {};
-  if (isApproved !== undefined) query.isApproved = isApproved === 'true';
+  // "isApproved=false" means "needs review" — that includes brand-new
+  // listings AND already-approved listings with a pending change request
+  // (which stay isApproved:true, only isDisabled flips, while under review).
+  if (isApproved === 'false') query.$or = [{ isApproved: false }, { 'pendingChange.data': { $ne: null } }];
+  else if (isApproved !== undefined) query.isApproved = isApproved === 'true';
   if (type) query.type = type;
   const skip = (Number(page) - 1) * Number(limit);
   const [vehicles, total] = await Promise.all([
@@ -136,4 +154,7 @@ const nearbyVehicles = async ({ lat, lng, radius = 10, type, page = 1, limit = 2
   return { vehicles, pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) } };
 };
 
-module.exports = { createVehicle, updateVehicle, deleteVehicle, getMyVehicles, listVehicles, getVehicleById, approveVehicle, adminGetAllVehicles, nearbyVehicles };
+module.exports = {
+  createVehicle, updateVehicle, deleteVehicle, getMyVehicles, listVehicles, getVehicleById, approveVehicle, adminGetAllVehicles, nearbyVehicles,
+  requestVehicleChange, approveVehicleChange, rejectVehicleChange, ownerDisableVehicle,
+};

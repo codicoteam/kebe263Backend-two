@@ -60,6 +60,8 @@ const setupChat = (chatNamespace) => {
             _id: socket.user._id,
             firstName: socket.user.firstName,
             lastName: socket.user.lastName,
+            username: socket.user.username,
+            isAdmin: socket.user.isAdmin,
           },
           message: saved.message,
           createdAt: saved.createdAt,

@@ -133,6 +133,7 @@ app.use('/api/bookings/service', serviceBookingRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api', promoCodeRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/broadcasts', require('./routes/broadcast.routes'));
 app.use('/api/search', searchRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/upload', require('./routes/upload.routes'));

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/auth.controller');
+const authenticate = require('../middleware/authenticate');
 
 /**
  * @swagger
@@ -70,6 +71,53 @@ const authController = require('../controllers/auth.controller');
  *         description: Internal server error
  */
 router.post('/register', authController.register);
+
+/**
+ * @swagger
+ * /api/auth/check-username:
+ *   get:
+ *     summary: Check whether a username is valid and available
+ *     tags: [Auth]
+ *     security: []
+ *     parameters:
+ *       - in: query
+ *         name: u
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Availability result
+ *       400:
+ *         description: Missing query param
+ */
+router.get('/check-username', authController.checkUsername);
+
+/**
+ * @swagger
+ * /api/auth/claim-username:
+ *   post:
+ *     summary: Set/change the authenticated user's username (used for pre-migration placeholder accounts)
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [username]
+ *             properties:
+ *               username:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Username updated
+ *       400:
+ *         description: Invalid username
+ *       409:
+ *         description: Username already taken
+ */
+router.post('/claim-username', authenticate, authController.claimUsername);
 
 /**
  * @swagger

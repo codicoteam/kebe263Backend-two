@@ -297,6 +297,57 @@ router.put('/:id', authenticate, isServiceProvider, vehicleController.updateVehi
 
 /**
  * @swagger
+ * /api/vehicles/{id}/request-change:
+ *   put:
+ *     summary: Submit a change to an already-approved vehicle for admin review (owner only). Hides the listing until reviewed.
+ *     tags: [Vehicles]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Change submitted, listing disabled pending review
+ *       400:
+ *         description: Listing not yet approved, or no valid fields provided
+ *       403:
+ *         description: Not your vehicle
+ */
+router.put('/:id/request-change', authenticate, isServiceProvider, vehicleController.requestVehicleChange);
+
+/**
+ * @swagger
+ * /api/vehicles/{id}/disable:
+ *   put:
+ *     summary: Owner-triggered disable/enable of their own vehicle listing
+ *     tags: [Vehicles]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               disabled: { type: boolean, default: true }
+ *     responses:
+ *       200:
+ *         description: Listing disabled/enabled
+ *       403:
+ *         description: Not your vehicle
+ */
+router.put('/:id/disable', authenticate, isServiceProvider, vehicleController.ownerDisableVehicle);
+
+/**
+ * @swagger
  * /api/vehicles/{id}:
  *   delete:
  *     summary: Delete a vehicle listing (owner only)

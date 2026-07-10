@@ -333,6 +333,57 @@ router.put('/:id', authenticate, isServiceProvider, propertyController.updatePro
 
 /**
  * @swagger
+ * /api/properties/{id}/request-change:
+ *   put:
+ *     summary: Submit a change to an already-approved property for admin review (owner only). Hides the listing until reviewed.
+ *     tags: [Properties]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Change submitted, listing disabled pending review
+ *       400:
+ *         description: Listing not yet approved, or no valid fields provided
+ *       403:
+ *         description: Not your listing
+ */
+router.put('/:id/request-change', authenticate, isServiceProvider, propertyController.requestPropertyChange);
+
+/**
+ * @swagger
+ * /api/properties/{id}/disable:
+ *   put:
+ *     summary: Owner-triggered disable/enable of their own property listing
+ *     tags: [Properties]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               disabled: { type: boolean, default: true }
+ *     responses:
+ *       200:
+ *         description: Listing disabled/enabled
+ *       403:
+ *         description: Not your listing
+ */
+router.put('/:id/disable', authenticate, isServiceProvider, propertyController.ownerDisableProperty);
+
+/**
+ * @swagger
  * /api/properties/{id}:
  *   delete:
  *     summary: Delete a property listing (owner only)

@@ -5,6 +5,9 @@ const Wallet = require('../models/wallet.model');
 const WalletTransaction = require('../models/walletTransaction.model');
 const { getConfig } = require('../utils/configCache');
 const notify = require('../utils/notify');
+const changeRequest = require('./listingChangeRequest.service');
+
+const PROPERTY_EDITABLE_FIELDS = ['title', 'description', 'type', 'category', 'purpose', 'price', 'currency', 'rooms', 'location', 'images'];
 
 const getOrCreateWallet = async (userId, currency = 'USD') => {
   let wallet = await Wallet.findOne({ owner: userId });
@@ -54,19 +57,30 @@ const updateProperty = async (propertyId, ownerId, data) => {
   if (property.owner.toString() !== ownerId.toString()) {
     throw { status: 403, message: 'You can only edit your own listings' };
   }
+  if (property.isApproved) {
+    throw { status: 400, message: 'This listing is already approved — use request-change instead of editing it directly' };
+  }
 
-  const allowed = ['title', 'description', 'type', 'category', 'purpose', 'price', 'currency', 'rooms', 'location', 'images', 'isAvailable'];
+  const allowed = [...PROPERTY_EDITABLE_FIELDS, 'isAvailable'];
   for (const key of allowed) {
     if (data[key] !== undefined) property[key] = data[key];
   }
 
-  // Re-submit for approval if core details changed
-  const coreChanged = ['title', 'description', 'price', 'location'].some((k) => data[k] !== undefined);
-  if (coreChanged) property.isApproved = false;
-
   await property.save();
   return property;
 };
+
+const requestPropertyChange = (propertyId, ownerId, data) =>
+  changeRequest.requestChange(Property, propertyId, ownerId, PROPERTY_EDITABLE_FIELDS, data);
+
+const approvePropertyChange = (propertyId) =>
+  changeRequest.approveChange(Property, propertyId, PROPERTY_EDITABLE_FIELDS);
+
+const rejectPropertyChange = (propertyId) =>
+  changeRequest.rejectChange(Property, propertyId);
+
+const ownerDisableProperty = (propertyId, ownerId, disabled) =>
+  changeRequest.ownerDisable(Property, propertyId, ownerId, disabled);
 
 const deleteProperty = async (propertyId, ownerId) => {
   const property = await Property.findById(propertyId);
@@ -89,7 +103,7 @@ const getMyProperties = async (ownerId, { page = 1, limit = 20 }) => {
 // ─── Customer ─────────────────────────────────────────────────────────────────
 
 const listProperties = async ({ page = 1, limit = 20, type, category, purpose, city }) => {
-  const query = { isApproved: true, isAvailable: true };
+  const query = { isApproved: true, isAvailable: true, isDisabled: { $ne: true } };
   if (type) query.type = type;
   if (category) query.category = category;
   if (purpose) query.purpose = purpose;
@@ -105,7 +119,7 @@ const listProperties = async ({ page = 1, limit = 20, type, category, purpose, c
 
 const getPropertyById = async (propertyId, userId) => {
   const property = await Property.findById(propertyId).populate('owner', 'firstName lastName phone email');
-  if (!property || !property.isApproved) throw { status: 404, message: 'Property not found' };
+  if (!property || !property.isApproved || property.isDisabled) throw { status: 404, message: 'Property not found' };
 
   let viewUnlocked = false;
   if (userId) {
@@ -257,7 +271,8 @@ const approveProperty = async (propertyId) => {
 
 const adminGetAllProperties = async ({ page = 1, limit = 20, isApproved, city, type, purpose }) => {
   const query = {};
-  if (isApproved !== undefined) query.isApproved = isApproved === 'true';
+  if (isApproved === 'false') query.$or = [{ isApproved: false }, { 'pendingChange.data': { $ne: null } }];
+  else if (isApproved !== undefined) query.isApproved = isApproved === 'true';
   if (city) query['location.city'] = { $regex: city, $options: 'i' };
   if (type) query.type = type;
   if (purpose) query.purpose = purpose;
@@ -275,7 +290,7 @@ const nearbyProperties = async ({ lat, lng, radius = 10, page = 1, limit = 20 })
 
   const radiusMeters = Number(radius) * 1000;
   const skip = (Number(page) - 1) * Number(limit);
-  const matchQuery = { isApproved: true, isAvailable: true };
+  const matchQuery = { isApproved: true, isAvailable: true, isDisabled: { $ne: true } };
 
   const geoNearStage = {
     $geoNear: {
@@ -341,4 +356,8 @@ module.exports = {
   adminGetAllProperties,
   nearbyProperties,
   checkPropertyPaymentStatus,
+  requestPropertyChange,
+  approvePropertyChange,
+  rejectPropertyChange,
+  ownerDisableProperty,
 };

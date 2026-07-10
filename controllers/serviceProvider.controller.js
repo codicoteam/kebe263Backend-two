@@ -16,6 +16,20 @@ const updateService = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const requestServiceChange = async (req, res, next) => {
+  try {
+    const service = await serviceProviderService.requestServiceChange(req.params.id, req.user._id, req.body);
+    return success(res, 'Change submitted for admin review. Your listing is hidden until it is approved.', { service });
+  } catch (err) { next(err); }
+};
+
+const ownerDisableService = async (req, res, next) => {
+  try {
+    const service = await serviceProviderService.ownerDisableService(req.params.id, req.user._id, req.body.disabled !== false);
+    return success(res, req.body.disabled !== false ? 'Service disabled' : 'Service re-enabled', { service });
+  } catch (err) { next(err); }
+};
+
 const deleteService = async (req, res, next) => {
   try {
     await serviceProviderService.deleteService(req.params.id, req.user._id);
@@ -94,7 +108,7 @@ const adminGetAllServices = async (req, res, next) => {
 };
 
 module.exports = {
-  createService, updateService, deleteService, getMyServices, payDeposit,
+  createService, updateService, requestServiceChange, ownerDisableService, deleteService, getMyServices, payDeposit,
   listServices, nearbyServices, getServiceById, bookService,
   depositWebhook, depositStatus, approveService, adminGetAllServices,
 };

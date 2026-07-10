@@ -28,6 +28,14 @@ const vehicleSchema = new mongoose.Schema(
     isAvailable: { type: Boolean, default: true },
     isApproved: { type: Boolean, default: false },
     isDisabled: { type: Boolean, default: false }, // admin-controlled; distinct from owner's isAvailable toggle
+    // Proposed edits to an already-approved vehicle, held here instead of
+    // overwriting the live fields until an admin reviews them. The live
+    // listing is disabled (hidden from customers) the moment a change is
+    // requested, and stays disabled unless/until the change is approved.
+    pendingChange: {
+      data: { type: mongoose.Schema.Types.Mixed, default: null },
+      submittedAt: { type: Date, default: null },
+    },
     currentLocation: {
       lat: { type: Number, default: null },
       lng: { type: Number, default: null },

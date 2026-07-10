@@ -312,6 +312,57 @@ router.put('/:id', authenticate, isServiceProvider, serviceProviderController.up
 
 /**
  * @swagger
+ * /api/services/{id}/request-change:
+ *   put:
+ *     summary: Submit a change to an already-approved service for admin review (owner only). Hides the listing until reviewed.
+ *     tags: [Services]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Change submitted, listing disabled pending review
+ *       400:
+ *         description: Listing not yet approved, or no valid fields provided
+ *       403:
+ *         description: Not your service
+ */
+router.put('/:id/request-change', authenticate, isServiceProvider, serviceProviderController.requestServiceChange);
+
+/**
+ * @swagger
+ * /api/services/{id}/disable:
+ *   put:
+ *     summary: Owner-triggered disable/enable of their own service listing
+ *     tags: [Services]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               disabled: { type: boolean, default: true }
+ *     responses:
+ *       200:
+ *         description: Listing disabled/enabled
+ *       403:
+ *         description: Not your service
+ */
+router.put('/:id/disable', authenticate, isServiceProvider, serviceProviderController.ownerDisableService);
+
+/**
+ * @swagger
  * /api/services/{id}:
  *   delete:
  *     summary: Delete a service profile (owner only)

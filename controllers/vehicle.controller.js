@@ -16,6 +16,20 @@ const updateVehicle = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const requestVehicleChange = async (req, res, next) => {
+  try {
+    const vehicle = await vehicleService.requestVehicleChange(req.params.id, req.user._id, req.body);
+    return success(res, 'Change submitted for admin review. Your listing is hidden until it is approved.', { vehicle });
+  } catch (err) { next(err); }
+};
+
+const ownerDisableVehicle = async (req, res, next) => {
+  try {
+    const vehicle = await vehicleService.ownerDisableVehicle(req.params.id, req.user._id, req.body.disabled !== false);
+    return success(res, req.body.disabled !== false ? 'Vehicle disabled' : 'Vehicle re-enabled', { vehicle });
+  } catch (err) { next(err); }
+};
+
 const deleteVehicle = async (req, res, next) => {
   try {
     await vehicleService.deleteVehicle(req.params.id, req.user._id);
@@ -72,4 +86,7 @@ const nearbyVehicles = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { createVehicle, updateVehicle, deleteVehicle, getMyVehicles, listVehicles, getVehicleById, bookVehicle, approveVehicle, adminGetAllVehicles, nearbyVehicles };
+module.exports = {
+  createVehicle, updateVehicle, deleteVehicle, getMyVehicles, listVehicles, getVehicleById, bookVehicle, approveVehicle, adminGetAllVehicles, nearbyVehicles,
+  requestVehicleChange, ownerDisableVehicle,
+};

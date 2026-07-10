@@ -19,6 +19,26 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+    // Public identity shown in chat/search instead of real name, so strangers
+    // can't look up a customer/provider by their legal name. `unique` + `sparse`
+    // lets pre-migration accounts (no username yet) coexist without colliding
+    // on the shared `null` value while the backfill script runs.
+    username: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      lowercase: true,
+      minlength: [3, 'Username must be at least 3 characters'],
+      maxlength: [20, 'Username must be at most 20 characters'],
+      match: [/^[a-z0-9_]+$/, 'Username can only contain lowercase letters, numbers, and underscores'],
+    },
+    // True for accounts backfilled with an auto-generated username (pre-migration
+    // users) — the frontend prompts these users to pick a real one once.
+    usernamePlaceholder: {
+      type: Boolean,
+      default: false,
+    },
     phone: {
       type: String,
       required: [true, 'Phone number is required'],

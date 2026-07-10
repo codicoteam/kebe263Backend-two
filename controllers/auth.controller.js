@@ -3,14 +3,38 @@ const { success, error } = require('../utils/apiResponse');
 
 const register = async (req, res, next) => {
   try {
-    const { firstName, lastName, email, phone, password, roles } = req.body;
+    const { firstName, lastName, email, phone, password, roles, username } = req.body;
 
-    if (!firstName || !lastName || !email || !phone || !password) {
-      return error(res, 'firstName, lastName, email, phone, and password are required', 400);
+    if (!firstName || !lastName || !email || !phone || !password || !username) {
+      return error(res, 'firstName, lastName, email, phone, password, and username are required', 400);
     }
 
-    const result = await authService.register({ firstName, lastName, email, phone, password, roles });
+    const result = await authService.register({ firstName, lastName, email, phone, password, roles, username });
     return success(res, result.message, { userId: result.userId }, 201);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const checkUsername = async (req, res, next) => {
+  try {
+    const { u } = req.query;
+    if (!u) return error(res, 'Query param "u" is required', 400);
+
+    const result = await authService.checkUsername(u);
+    return success(res, 'Checked', result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const claimUsername = async (req, res, next) => {
+  try {
+    const { username } = req.body;
+    if (!username) return error(res, 'username is required', 400);
+
+    const result = await authService.claimUsername(req.user._id, username);
+    return success(res, 'Username claimed', result);
   } catch (err) {
     next(err);
   }
@@ -81,4 +105,4 @@ const resetPassword = async (req, res, next) => {
   }
 };
 
-module.exports = { register, verifyOtp, login, resendOtp, forgotPassword, resetPassword };
+module.exports = { register, verifyOtp, login, resendOtp, forgotPassword, resetPassword, checkUsername, claimUsername };

@@ -11,6 +11,7 @@ const notificationSchema = new mongoose.Schema(
       default: 'system',
     },
     isRead: { type: Boolean, default: false },
+    broadcastId: { type: mongoose.Schema.Types.ObjectId, ref: 'Broadcast', default: null },
   },
   { timestamps: true }
 );

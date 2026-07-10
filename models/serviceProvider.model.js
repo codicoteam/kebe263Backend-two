@@ -23,6 +23,11 @@ const serviceProviderSchema = new mongoose.Schema(
     },
     isAvailable: { type: Boolean, default: true },
     isApproved: { type: Boolean, default: false },
+    isDisabled: { type: Boolean, default: false },
+    pendingChange: {
+      data: { type: mongoose.Schema.Types.Mixed, default: null },
+      submittedAt: { type: Date, default: null },
+    },
     depositPaid: { type: Boolean, default: false },
     depositAmount: { type: Number, default: 0 },
     depositReference: { type: String, default: null },

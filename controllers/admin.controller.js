@@ -78,7 +78,7 @@ const removeCategory = async (req, res, next) => {
 const broadcastNotifications = async (req, res, next) => {
   try {
     const { title, message, type, role } = req.body;
-    return success(res, 'Notifications sent', await adminService.broadcastNotification(title, message, type, role));
+    return success(res, 'Notifications sent', await adminService.broadcastNotification(req.user._id, title, message, type, role));
   } catch (err) { next(err); }
 };
 
@@ -156,6 +156,38 @@ const deleteProperty = async (req, res, next) => {
   catch (err) { next(err); }
 };
 
+const approvePropertyChange = async (req, res, next) => {
+  try {
+    const property = await propertyService.approvePropertyChange(req.params.id);
+    notify(property.owner, 'Change Approved', `Your requested change to "${property.title}" was approved and is now live.`, 'approval');
+    return success(res, 'Property change approved', { property });
+  } catch (err) { next(err); }
+};
+
+const rejectPropertyChange = async (req, res, next) => {
+  try {
+    const property = await propertyService.rejectPropertyChange(req.params.id);
+    notify(property.owner, 'Change Rejected', `Your requested change to "${property.title}" was rejected. The listing stays hidden — please contact support or resubmit.`, 'approval');
+    return success(res, 'Property change rejected', { property });
+  } catch (err) { next(err); }
+};
+
+const disableProperty = async (req, res, next) => {
+  try {
+    const property = await adminService.disableProperty(req.params.id);
+    notify(property.owner, 'Listing Disabled', `Your property "${property.title}" has been disabled by an admin and is no longer visible to customers.`, 'approval');
+    return success(res, 'Property disabled', { property });
+  } catch (err) { next(err); }
+};
+
+const enableProperty = async (req, res, next) => {
+  try {
+    const property = await adminService.enableProperty(req.params.id);
+    notify(property.owner, 'Listing Re-enabled', `Your property "${property.title}" is visible to customers again.`, 'approval');
+    return success(res, 'Property enabled', { property });
+  } catch (err) { next(err); }
+};
+
 const getPropertyBookings = async (req, res, next) => {
   try { return success(res, 'Property bookings fetched', await adminService.getAllPropertyBookings(req.query)); }
   catch (err) { next(err); }
@@ -205,6 +237,22 @@ const enableVehicle = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const approveVehicleChange = async (req, res, next) => {
+  try {
+    const vehicle = await vehicleService.approveVehicleChange(req.params.id);
+    notify(vehicle.owner, 'Change Approved', `Your requested change to ${vehicle.make} ${vehicle.model} was approved and is now live.`, 'approval');
+    return success(res, 'Vehicle change approved', { vehicle });
+  } catch (err) { next(err); }
+};
+
+const rejectVehicleChange = async (req, res, next) => {
+  try {
+    const vehicle = await vehicleService.rejectVehicleChange(req.params.id);
+    notify(vehicle.owner, 'Change Rejected', `Your requested change to ${vehicle.make} ${vehicle.model} was rejected. The listing stays hidden — please contact support or resubmit.`, 'approval');
+    return success(res, 'Vehicle change rejected', { vehicle });
+  } catch (err) { next(err); }
+};
+
 const getVehicleBookings = async (req, res, next) => {
   try { return success(res, 'Vehicle bookings fetched', await vehicleBookingService.adminGetAllBookings(req.query)); }
   catch (err) { next(err); }
@@ -248,6 +296,38 @@ const deleteService = async (req, res, next) => {
   catch (err) { next(err); }
 };
 
+const approveServiceChange = async (req, res, next) => {
+  try {
+    const service = await serviceProviderService.approveServiceChange(req.params.id);
+    notify(service.owner, 'Change Approved', `Your requested change to "${service.businessName}" was approved and is now live.`, 'approval');
+    return success(res, 'Service change approved', { service });
+  } catch (err) { next(err); }
+};
+
+const rejectServiceChange = async (req, res, next) => {
+  try {
+    const service = await serviceProviderService.rejectServiceChange(req.params.id);
+    notify(service.owner, 'Change Rejected', `Your requested change to "${service.businessName}" was rejected. The listing stays hidden — please contact support or resubmit.`, 'approval');
+    return success(res, 'Service change rejected', { service });
+  } catch (err) { next(err); }
+};
+
+const disableService = async (req, res, next) => {
+  try {
+    const service = await adminService.disableService(req.params.id);
+    notify(service.owner, 'Listing Disabled', `Your service "${service.businessName}" has been disabled by an admin and is no longer visible to customers.`, 'approval');
+    return success(res, 'Service disabled', { service });
+  } catch (err) { next(err); }
+};
+
+const enableService = async (req, res, next) => {
+  try {
+    const service = await adminService.enableService(req.params.id);
+    notify(service.owner, 'Listing Re-enabled', `Your service "${service.businessName}" is visible to customers again.`, 'approval');
+    return success(res, 'Service enabled', { service });
+  } catch (err) { next(err); }
+};
+
 const getServiceBookings = async (req, res, next) => {
   try { return success(res, 'Service bookings fetched', await serviceBookingService.adminGetAllBookings(req.query)); }
   catch (err) { next(err); }
@@ -289,8 +369,11 @@ module.exports = {
   broadcastNotifications, updateKycStatus, processRefund, getAdminLocations,
   getUsers, getUser, banUser, verifyUser, deleteUser,
   getProperties, approveProperty, rejectProperty, deleteProperty, getPropertyBookings,
+  approvePropertyChange, rejectPropertyChange, disableProperty, enableProperty,
   getVehicles, approveVehicle, rejectVehicle, deleteVehicle, disableVehicle, enableVehicle, getVehicleBookings, getWallets, getUserWallet,
+  approveVehicleChange, rejectVehicleChange,
   getServices, approveService, rejectService, deleteService, getServiceBookings,
+  approveServiceChange, rejectServiceChange, disableService, enableService,
   getOverview, getRevenueReport, getBookingReport, getUserReport,
   adminGetChatRooms,
 };

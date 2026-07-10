@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const chatRoomSchema = new mongoose.Schema(
   {
-    bookingType: { type: String, enum: ['service', 'vehicle', 'support'], required: true },
+    bookingType: { type: String, enum: ['service', 'vehicle', 'property', 'support', 'direct'], required: true },
     bookingId: { type: String, required: true },
     participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     lastMessage: { type: String, default: null },

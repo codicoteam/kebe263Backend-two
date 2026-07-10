@@ -22,6 +22,11 @@ const propertySchema = new mongoose.Schema(
     images: [{ type: String }],
     isAvailable: { type: Boolean, default: true },
     isApproved: { type: Boolean, default: false },
+    isDisabled: { type: Boolean, default: false },
+    pendingChange: {
+      data: { type: mongoose.Schema.Types.Mixed, default: null },
+      submittedAt: { type: Date, default: null },
+    },
   },
   { timestamps: true }
 );

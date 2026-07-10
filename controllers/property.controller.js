@@ -21,6 +21,20 @@ const updateProperty = async (req, res, next) => {
   }
 };
 
+const requestPropertyChange = async (req, res, next) => {
+  try {
+    const property = await propertyService.requestPropertyChange(req.params.id, req.user._id, req.body);
+    return success(res, 'Change submitted for admin review. Your listing is hidden until it is approved.', { property });
+  } catch (err) { next(err); }
+};
+
+const ownerDisableProperty = async (req, res, next) => {
+  try {
+    const property = await propertyService.ownerDisableProperty(req.params.id, req.user._id, req.body.disabled !== false);
+    return success(res, req.body.disabled !== false ? 'Property disabled' : 'Property re-enabled', { property });
+  } catch (err) { next(err); }
+};
+
 const deleteProperty = async (req, res, next) => {
   try {
     await propertyService.deleteProperty(req.params.id, req.user._id);
@@ -116,6 +130,8 @@ const paymentStatus = async (req, res, next) => {
 module.exports = {
   createProperty,
   updateProperty,
+  requestPropertyChange,
+  ownerDisableProperty,
   deleteProperty,
   getMyProperties,
   listProperties,
