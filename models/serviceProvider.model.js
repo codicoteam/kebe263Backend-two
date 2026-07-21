@@ -18,8 +18,18 @@ const serviceProviderSchema = new mongoose.Schema(
     location: {
       city: { type: String, default: null },
       address: { type: String, default: null },
-      type: { type: String, default: null },
-      coordinates: { type: [Number], default: undefined }, // [lng, lat] GeoJSON
+      // Flat lat/lng — this is the shape the mobile app reads (SpServiceLocation)
+      // and sends on create/update, so keep it as the source of truth for display.
+      lat: { type: Number, default: null },
+      lng: { type: Number, default: null },
+      // Geo point lives in its own sub-field (not siblings of city/address) so the
+      // sparse 2dsphere index below only sees a value when real coordinates exist —
+      // a sparse index on `location` itself would still see {city, address} and crash
+      // with "Can't extract geo keys" since that object isn't valid GeoJSON.
+      geo: {
+        type: { type: String, enum: ['Point'], default: undefined },
+        coordinates: { type: [Number], default: undefined }, // [lng, lat] — auto-set by pre-save
+      },
     },
     isAvailable: { type: Boolean, default: true },
     isApproved: { type: Boolean, default: false },
@@ -39,18 +49,15 @@ const serviceProviderSchema = new mongoose.Schema(
 );
 
 serviceProviderSchema.pre('save', function (next) {
-  if (this.location && this.location.coordinates && this.location.coordinates.length === 2) {
-    this.location.type = 'Point';
-  } else {
-    if (this.location) {
-      this.location.type = undefined;
-      this.location.coordinates = undefined;
-    }
+  if (this.location && typeof this.location.lat === 'number' && typeof this.location.lng === 'number') {
+    this.location.geo = { type: 'Point', coordinates: [this.location.lng, this.location.lat] };
+  } else if (this.location) {
+    this.location.geo = undefined;
   }
   next();
 });
 
-serviceProviderSchema.index({ location: '2dsphere' }, { sparse: true });
+serviceProviderSchema.index({ 'location.geo': '2dsphere' }, { sparse: true });
 serviceProviderSchema.index({ category: 1, isApproved: 1, isAvailable: 1, depositPaid: 1 });
 
 module.exports = mongoose.model('ServiceProvider', serviceProviderSchema);

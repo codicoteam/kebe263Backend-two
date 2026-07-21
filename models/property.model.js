@@ -16,8 +16,14 @@ const propertySchema = new mongoose.Schema(
       city: { type: String, default: null },
       lat: { type: Number, default: null },
       lng: { type: Number, default: null },
-      type: { type: String, default: null },
-      coordinates: { type: [Number], default: undefined }, // [lng, lat] GeoJSON — auto-set by pre-save
+      // Geo point lives in its own sub-field (not siblings of city/address) so the
+      // sparse 2dsphere index below only sees a value when real coordinates exist —
+      // a sparse index on `location` itself would still see {city, address} and crash
+      // with "Can't extract geo keys" since that object isn't valid GeoJSON.
+      geo: {
+        type: { type: String, enum: ['Point'], default: undefined },
+        coordinates: { type: [Number], default: undefined }, // [lng, lat] — auto-set by pre-save
+      },
     },
     images: [{ type: String }],
     isAvailable: { type: Boolean, default: true },
@@ -32,17 +38,13 @@ const propertySchema = new mongoose.Schema(
 );
 
 propertySchema.index({ 'location.city': 1, type: 1, category: 1, purpose: 1, isApproved: 1 });
-propertySchema.index({ location: '2dsphere' }, { sparse: true });
+propertySchema.index({ 'location.geo': '2dsphere' }, { sparse: true });
 
 propertySchema.pre('save', function (next) {
   if (this.location && typeof this.location.lat === 'number' && typeof this.location.lng === 'number') {
-    this.location.type = 'Point';
-    this.location.coordinates = [this.location.lng, this.location.lat];
-  } else {
-    if (this.location) {
-      this.location.type = undefined;
-      this.location.coordinates = undefined;
-    }
+    this.location.geo = { type: 'Point', coordinates: [this.location.lng, this.location.lat] };
+  } else if (this.location) {
+    this.location.geo = undefined;
   }
   next();
 });

@@ -6,16 +6,17 @@ const changeRequest = require('./listingChangeRequest.service');
 
 const SERVICE_EDITABLE_FIELDS = ['businessName', 'category', 'description', 'estimatedPrice', 'currency', 'priceUnit', 'profileImage', 'portfolioImages', 'location'];
 
-// Service location is stored as GeoJSON {type, coordinates}, but callers pass
-// {lng, lat} — normalize before it goes into pendingChange or gets applied.
+// location.lat/lng are the source of truth (what the mobile app reads and sends);
+// the model's pre-save hook derives location.geo from them for 2dsphere queries.
+// This just coerces the incoming values to numbers before they reach pendingChange.
 const normalizeServiceLocation = (data) => {
   if (!data.location?.lng || !data.location?.lat) return data;
   return {
     ...data,
     location: {
       ...data.location,
-      type: 'Point',
-      coordinates: [Number(data.location.lng), Number(data.location.lat)],
+      lat: Number(data.location.lat),
+      lng: Number(data.location.lng),
     },
   };
 };
@@ -47,9 +48,9 @@ const createService = async (ownerId, data) => {
   }
 
   const loc = location || {};
-  if (loc.lng && loc.lat) {
-    loc.type = 'Point';
-    loc.coordinates = [Number(loc.lng), Number(loc.lat)];
+  if (loc.lng != null && loc.lat != null) {
+    loc.lat = Number(loc.lat);
+    loc.lng = Number(loc.lng);
   }
 
   return ServiceProvider.create({
@@ -81,9 +82,9 @@ const updateService = async (serviceId, ownerId, data) => {
 
   if (data.location) {
     const loc = data.location;
-    if (loc.lng && loc.lat) {
-      loc.type = 'Point';
-      loc.coordinates = [Number(loc.lng), Number(loc.lat)];
+    if (loc.lng != null && loc.lat != null) {
+      loc.lat = Number(loc.lat);
+      loc.lng = Number(loc.lng);
     }
     service.location = { ...service.location.toObject?.() ?? service.location, ...loc };
   }
@@ -181,8 +182,8 @@ const getServiceById = async (serviceId, { lat, lng } = {}) => {
   if (!service || !service.isApproved || !service.depositPaid || service.isDisabled) throw { status: 404, message: 'Service not found' };
 
   const obj = service.toObject();
-  if (lat && lng && obj.location?.coordinates?.length === 2) {
-    obj.distanceKm = haversineKm(Number(lat), Number(lng), obj.location.coordinates[1], obj.location.coordinates[0]);
+  if (lat && lng && obj.location?.geo?.coordinates?.length === 2) {
+    obj.distanceKm = haversineKm(Number(lat), Number(lng), obj.location.geo.coordinates[1], obj.location.geo.coordinates[0]);
   }
   return obj;
 };

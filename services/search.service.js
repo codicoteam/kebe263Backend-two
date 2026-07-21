@@ -37,7 +37,7 @@ const globalSearch = async ({ q, type = 'all', lat, lng, limit = 10 }) => {
       .limit(lim);
 
     results.properties = lat && lng
-      ? addDistance(docs, lat, lng, 'location.coordinates').sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity))
+      ? addDistance(docs, lat, lng, 'location.geo.coordinates').sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity))
       : docs.map((d) => d.toObject());
   }
 
@@ -65,7 +65,7 @@ const globalSearch = async ({ q, type = 'all', lat, lng, limit = 10 }) => {
       .limit(lim);
 
     results.services = lat && lng
-      ? addDistance(docs, lat, lng, 'location.coordinates').sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity))
+      ? addDistance(docs, lat, lng, 'location.geo.coordinates').sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity))
       : docs.map((d) => d.toObject());
   }
 
