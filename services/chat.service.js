@@ -238,6 +238,38 @@ const createSupportRoom = async (userId, { subject, firstMessage, targetUserId }
   return room.populate('participants', 'firstName lastName username profileImage isAdmin');
 };
 
+// Flags a room for admin attention (the "Request admin" button in a direct
+// customer<->provider chat). Returns the updated room plus the current list
+// of active admins so the socket layer can notify/push to them.
+const requestAdmin = async (roomId, userId) => {
+  const room = await ChatRoom.findById(roomId);
+  if (!room) throw { status: 404, message: 'Room not found' };
+  if (!isParticipant(room, userId)) {
+    throw { status: 403, message: 'Not a participant of this room' };
+  }
+  if (room.bookingType === 'support') {
+    throw { status: 400, message: 'This room already includes admins' };
+  }
+
+  room.adminRequested = true;
+  room.adminRequestedBy = userId;
+  room.adminRequestedAt = new Date();
+  await room.save();
+
+  const admins = await User.find({ isAdmin: true, isActive: true }).select('_id firstName lastName');
+  return { room, admins };
+};
+
+// Called when an admin replies inside a flagged room — clears the flag so
+// the room drops out of the "Needs Attention" queue. No-op if not flagged.
+const clearAdminRequest = async (roomId) => {
+  const room = await ChatRoom.findById(roomId).select('adminRequested');
+  if (!room || !room.adminRequested) return false;
+  room.adminRequested = false;
+  await room.save();
+  return true;
+};
+
 const adminGetAllRooms = async ({ page = 1, limit = 20, bookingType, isActive }) => {
   const query = {};
   if (bookingType) query.bookingType = bookingType;
@@ -266,5 +298,7 @@ module.exports = {
   deleteRoom,
   getUnreadCount,
   createSupportRoom,
+  requestAdmin,
+  clearAdminRequest,
   adminGetAllRooms,
 };

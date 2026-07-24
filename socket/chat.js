@@ -1,5 +1,7 @@
 const ChatRoom = require('../models/chatRoom.model');
 const ChatMessage = require('../models/chatMessage.model');
+const chatService = require('../services/chat.service');
+const createNotification = require('../utils/notify');
 
 const setupChat = (chatNamespace) => {
   chatNamespace.on('connection', (socket) => {
@@ -7,6 +9,10 @@ const setupChat = (chatNamespace) => {
 
     // Personal room for offline notifications
     socket.join(`user:${userId}`);
+
+    // All admin sockets — lets us broadcast "needs attention" events to
+    // every connected admin without knowing their individual IDs upfront.
+    if (socket.user.isAdmin) socket.join('admins');
 
     // ─── Join a chat room ───────────────────────────────────────────────────
     socket.on('join:room', async ({ roomId }) => {
@@ -25,6 +31,44 @@ const setupChat = (chatNamespace) => {
         socket.emit('room:joined', { roomId, userId });
       } catch (err) {
         socket.emit('error', { message: 'Could not join room' });
+      }
+    });
+
+    // ─── Request admin into a direct customer<->provider room ──────────────
+    socket.on('request:admin', async ({ roomId }) => {
+      try {
+        if (!roomId) return socket.emit('error', { message: 'roomId is required' });
+
+        const { room, admins } = await chatService.requestAdmin(roomId, socket.user._id);
+
+        // Let everyone currently in the room know (shows an inline banner).
+        chatNamespace.to(roomId).emit('admin:requested', {
+          roomId,
+          requestedBy: userId,
+        });
+
+        // Live badge/queue update for connected admin dashboards.
+        chatNamespace.to('admins').emit('room:needsAdmin', {
+          roomId,
+          bookingType: room.bookingType,
+          requestedBy: {
+            _id: socket.user._id,
+            firstName: socket.user.firstName,
+            lastName: socket.user.lastName,
+          },
+        });
+
+        // Offline admins still get a push/notification-center entry.
+        for (const adminUser of admins) {
+          createNotification(
+            adminUser._id,
+            'Admin requested in a chat',
+            `${socket.user.firstName} ${socket.user.lastName} asked for admin help in a conversation.`,
+            'alert'
+          );
+        }
+      } catch (err) {
+        socket.emit('error', { message: err.message || 'Could not request admin' });
       }
     });
 
@@ -69,6 +113,16 @@ const setupChat = (chatNamespace) => {
 
         // Emit to all in room including sender
         chatNamespace.to(roomId).emit('new:message', payload);
+
+        // An admin replying to a flagged room resolves the "needs attention"
+        // state — the requester never learns which admin, matching the
+        // support-room convention (client renders admin messages as generic
+        // "Support" regardless of room type).
+        if (socket.user.isAdmin && room.adminRequested) {
+          await chatService.clearAdminRequest(roomId);
+          chatNamespace.to(roomId).emit('admin:joined', { roomId });
+          chatNamespace.to('admins').emit('room:resolved', { roomId });
+        }
 
         // Notify participants not currently in this room
         const socketsInRoom = await chatNamespace.in(roomId).fetchSockets();
