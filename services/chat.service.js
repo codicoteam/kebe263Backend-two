@@ -201,8 +201,10 @@ const getUnreadCount = async (userId) => {
 // specific provider/customer — e.g. to ask a clarifying question about their
 // pending listing change. The admin's message still shows as the real admin
 // to other admins, and as generic "Support" to the target (frontend rule).
-const createSupportRoom = async (userId, { subject, firstMessage, targetUserId }) => {
-  if (!firstMessage?.trim()) throw { status: 400, message: 'firstMessage is required' };
+const createSupportRoom = async (userId, { subject, firstMessage, targetUserId, attachments, imageUrl }) => {
+  const trimmedMsg = (firstMessage || '').trim();
+  const hasAttachments = (attachments && attachments.length > 0) || !!imageUrl;
+  if (!trimmedMsg && !hasAttachments) throw { status: 400, message: 'firstMessage or attachment is required' };
 
   let ownerId = userId;
   if (targetUserId && String(targetUserId) !== String(userId)) {
@@ -219,21 +221,33 @@ const createSupportRoom = async (userId, { subject, firstMessage, targetUserId }
     ? await ChatRoom.findOne({ bookingType: 'support', participants: ownerId, isActive: true }).sort({ createdAt: -1 })
     : null;
 
+  const preview = trimmedMsg ? trimmedMsg.substring(0, 100) : '📷 Photo';
+
   const room = existing || await ChatRoom.create({
     bookingType: 'support',
     bookingId: `support-${ownerId}-${Date.now()}`,
     participants,
-    lastMessage: firstMessage.trim().substring(0, 100),
+    lastMessage: preview,
     lastMessageAt: new Date(),
   });
 
   if (existing) {
-    room.lastMessage = firstMessage.trim().substring(0, 100);
+    room.lastMessage = preview;
     room.lastMessageAt = new Date();
     await room.save();
   }
 
-  await ChatMessage.create({ room: room._id, sender: userId, message: firstMessage.trim() });
+  const normalizedAttachments = Array.isArray(attachments)
+    ? attachments
+    : (imageUrl ? [{ url: imageUrl, type: 'image' }] : []);
+
+  await ChatMessage.create({
+    room: room._id,
+    sender: userId,
+    message: trimmedMsg,
+    imageUrl: imageUrl || (normalizedAttachments[0]?.url) || null,
+    attachments: normalizedAttachments,
+  });
 
   return room.populate('participants', 'firstName lastName username profileImage isAdmin');
 };

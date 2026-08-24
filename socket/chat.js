@@ -73,10 +73,12 @@ const setupChat = (chatNamespace) => {
     });
 
     // ─── Send a message ─────────────────────────────────────────────────────
-    socket.on('send:message', async ({ roomId, message }) => {
+    socket.on('send:message', async ({ roomId, message, imageUrl, attachments }) => {
       try {
-        if (!roomId || !message?.trim()) {
-          return socket.emit('error', { message: 'roomId and message are required' });
+        const trimmedMsg = (message || '').trim();
+        const hasAttachments = (attachments && attachments.length > 0) || !!imageUrl;
+        if (!roomId || (!trimmedMsg && !hasAttachments)) {
+          return socket.emit('error', { message: 'roomId and message or attachment are required' });
         }
 
         const room = await ChatRoom.findById(roomId);
@@ -87,13 +89,20 @@ const setupChat = (chatNamespace) => {
           return socket.emit('error', { message: 'Not a participant of this room' });
         }
 
+        const normalizedAttachments = Array.isArray(attachments)
+          ? attachments
+          : (imageUrl ? [{ url: imageUrl, type: 'image' }] : []);
+
         const saved = await ChatMessage.create({
           room: roomId,
           sender: socket.user._id,
-          message: message.trim(),
+          message: trimmedMsg,
+          imageUrl: imageUrl || (normalizedAttachments[0]?.url) || null,
+          attachments: normalizedAttachments,
         });
 
-        room.lastMessage = message.trim().substring(0, 100);
+        const preview = trimmedMsg ? trimmedMsg.substring(0, 100) : (normalizedAttachments.length > 0 ? '📷 Photo' : 'Message');
+        room.lastMessage = preview;
         room.lastMessageAt = new Date();
         await room.save();
 
@@ -105,9 +114,12 @@ const setupChat = (chatNamespace) => {
             firstName: socket.user.firstName,
             lastName: socket.user.lastName,
             username: socket.user.username,
+            profileImage: socket.user.profileImage,
             isAdmin: socket.user.isAdmin,
           },
           message: saved.message,
+          imageUrl: saved.imageUrl,
+          attachments: saved.attachments,
           createdAt: saved.createdAt,
         };
 
@@ -136,7 +148,8 @@ const setupChat = (chatNamespace) => {
           chatNamespace.to(`user:${recipientId}`).emit('notification:message', {
             roomId,
             senderName: `${socket.user.firstName} ${socket.user.lastName}`,
-            preview: message.trim().substring(0, 50),
+            preview: preview.substring(0, 50),
+            message: payload,
           });
         }
       } catch (err) {
