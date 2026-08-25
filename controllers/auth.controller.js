@@ -18,10 +18,10 @@ const register = async (req, res, next) => {
 
 const checkUsername = async (req, res, next) => {
   try {
-    const { u } = req.query;
-    if (!u) return error(res, 'Query param "u" is required', 400);
+    const raw = req.query.u || req.query.username;
+    if (!raw) return error(res, 'Query param "u" or "username" is required', 400);
 
-    const result = await authService.checkUsername(u);
+    const result = await authService.checkUsername(raw);
     return success(res, 'Checked', result);
   } catch (err) {
     next(err);

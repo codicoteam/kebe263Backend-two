@@ -35,12 +35,27 @@ const register = async ({ firstName, lastName, email, phone, password, roles, us
   const existing = await User.findOne({ email });
   if (existing) throw { status: 409, message: 'An account with this email already exists' };
 
-  const normalizedUsername = String(username || '').trim().toLowerCase();
-  if (!USERNAME_PATTERN.test(normalizedUsername)) {
-    throw { status: 400, message: 'Username must be 3-20 characters: lowercase letters, numbers, and underscores only' };
+  let normalizedUsername = String(username || '').trim().toLowerCase();
+  let isPlaceholder = false;
+
+  if (!normalizedUsername) {
+    // Generate a fallback placeholder username if not provided
+    const base = String(email || '').split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 14) || 'user';
+    let candidate = base.length >= 3 ? base : `user_${base}`;
+    let suffix = 0;
+    while (await User.findOne({ username: candidate })) {
+      suffix += 1;
+      candidate = `${base.slice(0, 14)}_${suffix}`;
+    }
+    normalizedUsername = candidate;
+    isPlaceholder = true;
+  } else {
+    if (!USERNAME_PATTERN.test(normalizedUsername)) {
+      throw { status: 400, message: 'Username must be 3-20 characters: lowercase letters, numbers, and underscores only' };
+    }
+    const usernameTaken = await User.findOne({ username: normalizedUsername });
+    if (usernameTaken) throw { status: 409, message: 'That username is already taken' };
   }
-  const usernameTaken = await User.findOne({ username: normalizedUsername });
-  if (usernameTaken) throw { status: 409, message: 'That username is already taken' };
 
   const validRoles = (roles || []).filter((r) => ['customer', 'serviceProvider'].includes(r));
   const hashed = await bcrypt.hash(password, 12);
@@ -53,6 +68,7 @@ const register = async ({ firstName, lastName, email, phone, password, roles, us
     password: hashed,
     roles: validRoles,
     username: normalizedUsername,
+    usernamePlaceholder: isPlaceholder,
   });
 
   await saveAndSendOTP(user, 'verification');

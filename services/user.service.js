@@ -80,7 +80,7 @@ const getMe = async (userId) => {
 };
 
 const updateMe = async (userId, updates) => {
-  const allowed = ['firstName', 'lastName', 'phone', 'profileImage'];
+  const allowed = ['firstName', 'lastName', 'phone', 'profileImage', 'username'];
   const filtered = {};
   for (const key of allowed) {
     if (updates[key] !== undefined) filtered[key] = updates[key];
@@ -88,6 +88,17 @@ const updateMe = async (userId, updates) => {
 
   if (Object.keys(filtered).length === 0) {
     throw { status: 400, message: 'No valid fields provided to update' };
+  }
+
+  if (filtered.username !== undefined) {
+    const normalized = String(filtered.username).trim().toLowerCase();
+    if (!USERNAME_PATTERN.test(normalized)) {
+      throw { status: 400, message: 'Username must be 3-20 characters: lowercase letters, numbers, and underscores only' };
+    }
+    const taken = await User.findOne({ username: normalized, _id: { $ne: userId } });
+    if (taken) throw { status: 409, message: 'That username is already taken' };
+    filtered.username = normalized;
+    filtered.usernamePlaceholder = false;
   }
 
   const user = await User.findByIdAndUpdate(userId, filtered, { new: true, runValidators: true });
