@@ -20,7 +20,13 @@ const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 
 const io = new Server(server, {
-  cors: { origin: process.env.CLIENT_URL || '*', methods: ['GET', 'POST'] },
+  cors: {
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST'],
+  },
+  transports: ['polling', 'websocket'],
+  allowEIO3: true,
 });
 
 const setupSocket = require('./socket');
