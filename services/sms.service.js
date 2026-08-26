@@ -55,7 +55,7 @@ const sendSms = async ({ to, message }) => {
 };
 
 const otpSmsTemplate = (otp) => {
-  const minutes = process.env.OTP_EXPIRY_MINUTES || 10;
+  const minutes = process.env.PHONE_OTP_EXPIRY_MINUTES || 2;
   return `Your KEBE263 verification code is ${otp}. It expires in ${minutes} minutes. Do not share this code.`;
 };
 

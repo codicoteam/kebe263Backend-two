@@ -7,6 +7,7 @@ const { sendSms, otpSmsTemplate } = require('./sms.service');
 const { phoneLookupCandidates } = require('../utils/phone');
 
 const OTP_EXPIRY_MS = (Number(process.env.OTP_EXPIRY_MINUTES) || 10) * 60 * 1000;
+const PHONE_OTP_EXPIRY_MS = (Number(process.env.PHONE_OTP_EXPIRY_MINUTES) || 2) * 60 * 1000;
 const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 
 const checkUsername = async (rawUsername) => {
@@ -29,6 +30,17 @@ const saveAndSendOTP = async (user, purpose = 'verification') => {
     subject: purpose === 'password-reset' ? 'KEBE Super App — Password Reset OTP' : 'KEBE Super App — Verify Your Email',
     html: otpEmailTemplate(otp, purpose),
   });
+
+  return otp;
+};
+
+const saveAndSendPhoneOTP = async (user) => {
+  const otp = generateOTP();
+  user.phoneOtp = otp;
+  user.phoneOtpExpiry = new Date(Date.now() + PHONE_OTP_EXPIRY_MS);
+  await user.save({ validateModifiedOnly: true });
+
+  await sendSms({ to: user.phone, message: otpSmsTemplate(otp) });
 
   return otp;
 };
@@ -73,9 +85,9 @@ const register = async ({ firstName, lastName, email, phone, password, roles, us
     usernamePlaceholder: isPlaceholder,
   });
 
-  await saveAndSendOTP(user, 'verification');
+  await saveAndSendPhoneOTP(user);
 
-  return { userId: user._id, message: 'Registration successful. Check your email for the OTP.' };
+  return { userId: user._id, message: 'Registration successful. Check your phone for the verification code.' };
 };
 
 const verifyOtp = async ({ email, otp }) => {
@@ -148,12 +160,7 @@ const requestPhoneOtp = async ({ phone }) => {
   }
   if (!user.isActive) throw { status: 403, message: 'Your account has been deactivated' };
 
-  const otp = generateOTP();
-  user.phoneOtp = otp;
-  user.phoneOtpExpiry = new Date(Date.now() + OTP_EXPIRY_MS);
-  await user.save({ validateModifiedOnly: true });
-
-  await sendSms({ to: user.phone, message: otpSmsTemplate(otp) });
+  await saveAndSendPhoneOTP(user);
 
   return { message: 'A verification code has been sent to your phone' };
 };
