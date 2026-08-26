@@ -42,6 +42,7 @@ const userSchema = new mongoose.Schema(
     phone: {
       type: String,
       required: [true, 'Phone number is required'],
+      unique: true,
       trim: true,
     },
     password: {
@@ -74,6 +75,10 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isPhoneVerified: {
+      type: Boolean,
+      default: false,
+    },
     kycStatus: {
       type: String,
       enum: ['pending', 'approved', 'rejected'],
@@ -92,6 +97,14 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
     otpExpiry: {
+      type: Date,
+      select: false,
+    },
+    phoneOtp: {
+      type: String,
+      select: false,
+    },
+    phoneOtpExpiry: {
       type: Date,
       select: false,
     },
@@ -125,6 +138,8 @@ userSchema.methods.toSafeObject = function () {
   delete obj.password;
   delete obj.otp;
   delete obj.otpExpiry;
+  delete obj.phoneOtp;
+  delete obj.phoneOtpExpiry;
   return obj;
 };
 

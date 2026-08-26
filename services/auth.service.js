@@ -3,6 +3,8 @@ const User = require('../models/user.model');
 const generateOTP = require('../utils/generateOTP');
 const generateToken = require('../utils/generateToken');
 const { sendEmail, otpEmailTemplate } = require('../utils/sendEmail');
+const { sendSms, otpSmsTemplate } = require('./sms.service');
+const { phoneLookupCandidates } = require('../utils/phone');
 
 const OTP_EXPIRY_MS = (Number(process.env.OTP_EXPIRY_MINUTES) || 10) * 60 * 1000;
 const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
@@ -138,6 +140,43 @@ const resetPassword = async ({ email, otp, newPassword }) => {
   return { message: 'Password reset successfully. You can now log in.' };
 };
 
+const requestPhoneOtp = async ({ phone }) => {
+  const candidates = phoneLookupCandidates(phone);
+  const user = await User.findOne({ phone: { $in: candidates } });
+  if (!user) {
+    throw { status: 404, message: 'No account found with this phone number. Please sign up or use email login.' };
+  }
+  if (!user.isActive) throw { status: 403, message: 'Your account has been deactivated' };
+
+  const otp = generateOTP();
+  user.phoneOtp = otp;
+  user.phoneOtpExpiry = new Date(Date.now() + OTP_EXPIRY_MS);
+  await user.save({ validateModifiedOnly: true });
+
+  await sendSms({ to: user.phone, message: otpSmsTemplate(otp) });
+
+  return { message: 'A verification code has been sent to your phone' };
+};
+
+const loginWithPhone = async ({ phone, otp }) => {
+  const candidates = phoneLookupCandidates(phone);
+  const user = await User.findOne({ phone: { $in: candidates } }).select('+phoneOtp +phoneOtpExpiry');
+  if (!user) throw { status: 404, message: 'No account found with this phone number' };
+  if (!user.isActive) throw { status: 403, message: 'Your account has been deactivated' };
+  if (!user.phoneOtp || !user.phoneOtpExpiry) throw { status: 400, message: 'No OTP found. Please request a new one.' };
+  if (user.phoneOtpExpiry < new Date()) throw { status: 400, message: 'OTP has expired. Please request a new one.' };
+  if (user.phoneOtp !== otp) throw { status: 400, message: 'Invalid OTP' };
+
+  user.isPhoneVerified = true;
+  user.isVerified = true;
+  user.phoneOtp = undefined;
+  user.phoneOtpExpiry = undefined;
+  await user.save({ validateModifiedOnly: true });
+
+  const token = generateToken({ id: user._id, isAdmin: user.isAdmin, roles: user.roles });
+  return { token, user: user.toSafeObject() };
+};
+
 const claimUsername = async (userId, rawUsername) => {
   const normalizedUsername = String(rawUsername || '').trim().toLowerCase();
   if (!USERNAME_PATTERN.test(normalizedUsername)) {
@@ -156,4 +195,15 @@ const claimUsername = async (userId, rawUsername) => {
   return { user: user.toSafeObject() };
 };
 
-module.exports = { register, verifyOtp, login, resendOtp, forgotPassword, resetPassword, checkUsername, claimUsername };
+module.exports = {
+  register,
+  verifyOtp,
+  login,
+  resendOtp,
+  forgotPassword,
+  resetPassword,
+  checkUsername,
+  claimUsername,
+  requestPhoneOtp,
+  loginWithPhone,
+};

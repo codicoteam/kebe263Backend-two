@@ -240,6 +240,91 @@ router.post('/login', authController.login);
 
 /**
  * @swagger
+ * /api/auth/phone/request-otp:
+ *   post:
+ *     summary: Request a one-time login code by SMS for an existing account
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [phone]
+ *             properties:
+ *               phone:
+ *                 type: string
+ *                 example: "+263771234567"
+ *     responses:
+ *       200:
+ *         description: OTP sent via SMS
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiResponse'
+ *       400:
+ *         description: Missing phone number
+ *       403:
+ *         description: Account deactivated
+ *       404:
+ *         description: No account found with this phone number
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/phone/request-otp', authController.requestPhoneOtp);
+
+/**
+ * @swagger
+ * /api/auth/phone/login:
+ *   post:
+ *     summary: Log in with a phone number and SMS OTP
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [phone, otp]
+ *             properties:
+ *               phone:
+ *                 type: string
+ *                 example: "+263771234567"
+ *               otp:
+ *                 type: string
+ *                 example: "482931"
+ *     responses:
+ *       200:
+ *         description: Login successful, JWT token and user object returned
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         token:
+ *                           type: string
+ *                         user:
+ *                           type: object
+ *       400:
+ *         description: Missing fields, invalid or expired OTP
+ *       403:
+ *         description: Account deactivated
+ *       404:
+ *         description: No account found with this phone number
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/phone/login', authController.loginWithPhone);
+
+/**
+ * @swagger
  * /api/auth/resend-otp:
  *   post:
  *     summary: Resend email verification OTP

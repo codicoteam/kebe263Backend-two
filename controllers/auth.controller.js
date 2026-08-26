@@ -105,4 +105,39 @@ const resetPassword = async (req, res, next) => {
   }
 };
 
-module.exports = { register, verifyOtp, login, resendOtp, forgotPassword, resetPassword, checkUsername, claimUsername };
+const requestPhoneOtp = async (req, res, next) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) return error(res, 'Phone number is required', 400);
+
+    const result = await authService.requestPhoneOtp({ phone });
+    return success(res, result.message);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const loginWithPhone = async (req, res, next) => {
+  try {
+    const { phone, otp } = req.body;
+    if (!phone || !otp) return error(res, 'Phone number and OTP are required', 400);
+
+    const result = await authService.loginWithPhone({ phone, otp });
+    return success(res, 'Login successful', result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = {
+  register,
+  verifyOtp,
+  login,
+  resendOtp,
+  forgotPassword,
+  resetPassword,
+  checkUsername,
+  claimUsername,
+  requestPhoneOtp,
+  loginWithPhone,
+};
