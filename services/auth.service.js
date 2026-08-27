@@ -34,6 +34,21 @@ const saveAndSendOTP = async (user, purpose = 'verification') => {
   return otp;
 };
 
+const saveAndSendDeleteOTP = async (user) => {
+  const otp = generateOTP();
+  user.deleteOtp = otp;
+  user.deleteOtpExpiry = new Date(Date.now() + OTP_EXPIRY_MS);
+  await user.save({ validateModifiedOnly: true });
+
+  await sendEmail({
+    to: user.email,
+    subject: 'KEBE Super App — Confirm Account Deletion',
+    html: otpEmailTemplate(otp, 'account-deletion'),
+  });
+
+  return otp;
+};
+
 const saveAndSendPhoneOTP = async (user) => {
   const otp = generateOTP();
   user.phoneOtp = otp;
@@ -202,6 +217,25 @@ const claimUsername = async (userId, rawUsername) => {
   return { user: user.toSafeObject() };
 };
 
+const requestAccountDeletion = async ({ email }) => {
+  const user = await User.findOne({ email: String(email || '').trim().toLowerCase() });
+  if (!user) throw { status: 404, message: 'No account found with this email' };
+
+  await saveAndSendDeleteOTP(user);
+  return { message: 'A confirmation code has been sent to your email' };
+};
+
+const confirmAccountDeletion = async ({ email, otp }) => {
+  const user = await User.findOne({ email: String(email || '').trim().toLowerCase() }).select('+deleteOtp +deleteOtpExpiry');
+  if (!user) throw { status: 404, message: 'No account found with this email' };
+  if (!user.deleteOtp || !user.deleteOtpExpiry) throw { status: 400, message: 'No deletion code found. Please request a new one.' };
+  if (user.deleteOtpExpiry < new Date()) throw { status: 400, message: 'Code has expired. Please request a new one.' };
+  if (user.deleteOtp !== otp) throw { status: 400, message: 'Invalid code' };
+
+  await user.deleteOne();
+  return { message: 'Your account has been permanently deleted' };
+};
+
 module.exports = {
   register,
   verifyOtp,
@@ -213,4 +247,6 @@ module.exports = {
   claimUsername,
   requestPhoneOtp,
   loginWithPhone,
+  requestAccountDeletion,
+  confirmAccountDeletion,
 };

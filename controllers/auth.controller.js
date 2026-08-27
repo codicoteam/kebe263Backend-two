@@ -129,6 +129,30 @@ const loginWithPhone = async (req, res, next) => {
   }
 };
 
+const requestAccountDeletion = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) return error(res, 'Email is required', 400);
+
+    const result = await authService.requestAccountDeletion({ email });
+    return success(res, result.message);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const confirmAccountDeletion = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) return error(res, 'Email and confirmation code are required', 400);
+
+    const result = await authService.confirmAccountDeletion({ email, otp });
+    return success(res, result.message);
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   register,
   verifyOtp,
@@ -140,4 +164,6 @@ module.exports = {
   claimUsername,
   requestPhoneOtp,
   loginWithPhone,
+  requestAccountDeletion,
+  confirmAccountDeletion,
 };

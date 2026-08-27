@@ -325,6 +325,71 @@ router.post('/phone/login', authController.loginWithPhone);
 
 /**
  * @swagger
+ * /api/auth/delete-account/request-otp:
+ *   post:
+ *     summary: Request a confirmation code to permanently delete an account (no login required)
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: takudzwa@example.co.zw
+ *     responses:
+ *       200:
+ *         description: Confirmation code sent to email
+ *       400:
+ *         description: Missing email
+ *       404:
+ *         description: No account found with this email
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/delete-account/request-otp', authController.requestAccountDeletion);
+
+/**
+ * @swagger
+ * /api/auth/delete-account/confirm:
+ *   post:
+ *     summary: Confirm and permanently delete an account using the emailed code
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, otp]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: takudzwa@example.co.zw
+ *               otp:
+ *                 type: string
+ *                 example: "482931"
+ *     responses:
+ *       200:
+ *         description: Account permanently deleted
+ *       400:
+ *         description: Missing fields, invalid or expired code
+ *       404:
+ *         description: No account found with this email
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/delete-account/confirm', authController.confirmAccountDeletion);
+
+/**
+ * @swagger
  * /api/auth/resend-otp:
  *   post:
  *     summary: Resend email verification OTP

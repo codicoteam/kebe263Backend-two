@@ -90,8 +90,10 @@ const otpEmailTemplate = (otp, purpose = 'verification') => {
   const purposeMap = {
     verification: 'verify your email address',
     'password-reset': 'reset your password',
+    'account-deletion': 'permanently delete your account',
   };
   const actionText = purposeMap[purpose] || 'complete your request';
+  const isDeletion = purpose === 'account-deletion';
 
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -106,7 +108,11 @@ const otpEmailTemplate = (otp, purpose = 'verification') => {
           ${otp}
         </div>
         <p style="color: #666; font-size: 14px;">This code expires in <strong>${process.env.OTP_EXPIRY_MINUTES || 10} minutes</strong>.</p>
-        <p style="color: #666; font-size: 14px;">If you did not request this, please ignore this email.</p>
+        ${isDeletion ? `
+        <p style="color: #b91c1c; font-size: 14px; font-weight: bold;">
+          Entering this code will permanently delete your KEBE263 account. This cannot be undone.
+        </p>` : ''}
+        <p style="color: #666; font-size: 14px;">If you did not request this, please ignore this email${isDeletion ? ' — your account will remain safe' : ''}.</p>
       </div>
     </div>
   `;

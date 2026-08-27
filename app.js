@@ -22,6 +22,7 @@ const searchRoutes = require('./routes/search.routes');
 const chatRoutes = require('./routes/chat.routes');
 const promoCodeRoutes = require('./routes/promoCode.routes');
 const debugRoutes = require('./routes/debug.routes');
+const contactRoutes = require('./routes/contact.routes');
 
 const app = express();
 
@@ -140,6 +141,7 @@ app.use('/api/upload', require('./routes/upload.routes'));
 app.use('/api/reviews', require('./routes/review.routes'));
 app.use('/api/reports', require('./routes/report.routes'));
 app.use('/api/categories', require('./routes/category.routes'));
+app.use('/api/contact', contactRoutes);
 app.use('/api/debug', debugRoutes);
 app.get('/', (req, res) => {
   res.json({

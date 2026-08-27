@@ -108,6 +108,14 @@ const userSchema = new mongoose.Schema(
       type: Date,
       select: false,
     },
+    deleteOtp: {
+      type: String,
+      select: false,
+    },
+    deleteOtpExpiry: {
+      type: Date,
+      select: false,
+    },
     isActive: {
       type: Boolean,
       default: true,
@@ -140,6 +148,8 @@ userSchema.methods.toSafeObject = function () {
   delete obj.otpExpiry;
   delete obj.phoneOtp;
   delete obj.phoneOtpExpiry;
+  delete obj.deleteOtp;
+  delete obj.deleteOtpExpiry;
   return obj;
 };
 
