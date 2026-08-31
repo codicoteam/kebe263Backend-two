@@ -5,8 +5,8 @@ const register = async (req, res, next) => {
   try {
     const { firstName, lastName, email, phone, password, roles, username } = req.body;
 
-    if (!firstName || !lastName || !email || !phone || !password || !username) {
-      return error(res, 'firstName, lastName, email, phone, password, and username are required', 400);
+    if (!firstName || !lastName || !email || !phone || !password) {
+      return error(res, 'firstName, lastName, email, phone, and password are required', 400);
     }
 
     const result = await authService.register({ firstName, lastName, email, phone, password, roles, username });
