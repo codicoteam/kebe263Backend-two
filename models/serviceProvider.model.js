@@ -49,9 +49,9 @@ const serviceProviderSchema = new mongoose.Schema(
 );
 
 serviceProviderSchema.pre('save', function (next) {
-  if (this.location && typeof this.location.lat === 'number' && typeof this.location.lng === 'number') {
+  if (this.location && Number.isFinite(this.location.lat) && Number.isFinite(this.location.lng)) {
     this.location.geo = { type: 'Point', coordinates: [this.location.lng, this.location.lat] };
-  } else if (this.location) {
+  } else {
     this.location.geo = undefined;
   }
   next();

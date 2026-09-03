@@ -41,9 +41,9 @@ propertySchema.index({ 'location.city': 1, type: 1, category: 1, purpose: 1, isA
 propertySchema.index({ 'location.geo': '2dsphere' }, { sparse: true });
 
 propertySchema.pre('save', function (next) {
-  if (this.location && typeof this.location.lat === 'number' && typeof this.location.lng === 'number') {
+  if (this.location && Number.isFinite(this.location.lat) && Number.isFinite(this.location.lng)) {
     this.location.geo = { type: 'Point', coordinates: [this.location.lng, this.location.lat] };
-  } else if (this.location) {
+  } else {
     this.location.geo = undefined;
   }
   next();

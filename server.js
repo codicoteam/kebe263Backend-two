@@ -3,6 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const app = require('./app');
 const connectDB = require('./config/db');
+const { reconcileGeoIndexes } = require('./scripts/fixGeoIndexes');
 
 const requiredEnvVars = ['JWT_SECRET'];
 const missingEnvVars = requiredEnvVars.filter((name) => !process.env[name]);
@@ -42,7 +43,12 @@ setupChat(chatNamespace);
 app.set('io', io);
 
 connectDB()
-  .then(() => {
+  .then(async () => {
+    try {
+      await reconcileGeoIndexes();
+    } catch (err) {
+      console.error('Geo index reconcile failed:', err.message);
+    }
     server.listen(PORT, () => {
       const apiDocsUrl = process.env.API_BASE_URL
         ? `${process.env.API_BASE_URL.replace(/\/$/, '')}/api-docs`

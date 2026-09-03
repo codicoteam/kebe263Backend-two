@@ -32,6 +32,7 @@ const seed = async () => {
         isAdmin: true,
         isVerified: true,
         profileImage: 'https://unsplash.com/photos/mans-grey-and-black-shirt-ILip77SbmOE',
+        username: 'admin_takunda',
         isActive: true,
       },
       {
@@ -47,6 +48,7 @@ const seed = async () => {
         kycStatus: 'approved',
         kycDocuments: ['https://images.unsplash.com/photo-1581579189299-2a7d90c991f2'],
         profileImage: null,
+        username: 'tendai_pro',
         isActive: true,
       },
       {
@@ -60,6 +62,7 @@ const seed = async () => {
         isAdmin: false,
         isVerified: true,
         profileImage: null,
+        username: 'anele_pro',
         isActive: true,
       },
       {
@@ -75,6 +78,7 @@ const seed = async () => {
         kycStatus: 'pending',
         kycDocuments: ['https://images.unsplash.com/photo-1517248135467-4c7edcad34c4'],
         profileImage: 'https://unsplash.com/photos/man-standing-in-front-of-window-8Vt2haq8NSQ',
+        username: 'willard_plumb',
         isActive: true,
       },
       {
@@ -88,6 +92,7 @@ const seed = async () => {
         isAdmin: false,
         isVerified: true,
         profileImage: null,
+        username: 'takunda_cust',
         isActive: true,
       },
       {
@@ -101,6 +106,7 @@ const seed = async () => {
         isAdmin: false,
         isVerified: true,
         profileImage: null,
+        username: 'nyasha_cust',
         isActive: true,
       },
       {
@@ -114,6 +120,7 @@ const seed = async () => {
         isAdmin: false,
         isVerified: true,
         profileImage: null,
+        username: 'tinashe_cust',
         isActive: true,
       },
     ];

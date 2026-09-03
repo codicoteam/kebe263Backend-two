@@ -37,6 +37,13 @@ const createProperty = async (ownerId, data) => {
   if (!title || !description || !type || !category || !purpose || price == null) {
     throw { status: 400, message: 'title, description, type, category, purpose, and price are required' };
   }
+
+  const loc = location || {};
+  if (loc.lng != null && loc.lat != null) {
+    loc.lat = Number(loc.lat);
+    loc.lng = Number(loc.lng);
+  }
+
   return Property.create({
     owner: ownerId,
     title,
@@ -47,7 +54,7 @@ const createProperty = async (ownerId, data) => {
     price,
     currency: currency || 'USD',
     rooms: rooms || null,
-    location: location || {},
+    location: loc,
     images: images || [],
   });
 };
@@ -65,6 +72,15 @@ const updateProperty = async (propertyId, ownerId, data) => {
   const allowed = [...PROPERTY_EDITABLE_FIELDS, 'isAvailable'];
   for (const key of allowed) {
     if (data[key] !== undefined) property[key] = data[key];
+  }
+
+  if (data.location) {
+    const loc = data.location;
+    if (loc.lng != null && loc.lat != null) {
+      loc.lat = Number(loc.lat);
+      loc.lng = Number(loc.lng);
+    }
+    property.location = { ...property.location.toObject?.() ?? property.location, ...loc };
   }
 
   await property.save();

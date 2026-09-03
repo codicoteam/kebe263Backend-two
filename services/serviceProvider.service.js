@@ -3,6 +3,7 @@ const ServiceProvider = require('../models/serviceProvider.model');
 const AppConfig = require('../models/appConfig.model');
 const { getConfig } = require('../utils/configCache');
 const changeRequest = require('./listingChangeRequest.service');
+const notify = require('../utils/notify');
 
 const SERVICE_EDITABLE_FIELDS = ['businessName', 'category', 'description', 'estimatedPrice', 'currency', 'priceUnit', 'profileImage', 'portfolioImages', 'location'];
 
