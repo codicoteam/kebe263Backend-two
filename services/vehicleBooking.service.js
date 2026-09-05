@@ -496,9 +496,12 @@ const getOpenRideRequests = async (ownerId, query) => {
   const spVehicle = await Vehicle.findOne({ owner: ownerId });
 
   const q = { requestType: 'open', status: 'pending', owner: null };
-  if (spVehicle) {
-    q.$or = [{ vehicleType: spVehicle.type }, { vehicleType: { $in: [null, ''] } }];
-  }
+  // Only match this owner's vehicle type, or requests open to any type ('' / null).
+  // No registered vehicle yet → can't claim a type-specific request anyway, so only
+  // show the any-type ones instead of leaking every open request to them.
+  q.$or = spVehicle
+    ? [{ vehicleType: spVehicle.type }, { vehicleType: { $in: [null, ''] } }]
+    : [{ vehicleType: { $in: [null, ''] } }];
 
   const skip = (Number(page) - 1) * Number(limit);
   const [bookings, total] = await Promise.all([

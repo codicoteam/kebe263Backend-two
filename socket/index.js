@@ -36,7 +36,10 @@ const setupSocket = (io) => {
         if (!bookingId || lat == null || lng == null) return;
 
         const booking = await VehicleBooking.findById(bookingId).select('vehicle status');
-        if (!booking || booking.status !== 'inProgress') return;
+        // Location sharing starts the moment the driver accepts (customer tracks
+        // them approaching pickup), not just once the ride is marked inProgress —
+        // matches the mobile app's intent on both the driver and customer side.
+        if (!booking || !['accepted', 'inProgress'].includes(booking.status)) return;
 
         await Vehicle.findByIdAndUpdate(booking.vehicle, {
           $set: {

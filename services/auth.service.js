@@ -61,7 +61,8 @@ const saveAndSendPhoneOTP = async (user) => {
 };
 
 const register = async ({ firstName, lastName, email, phone, password, roles, username }) => {
-  const existing = await User.findOne({ email });
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const existing = await User.findOne({ email: normalizedEmail });
   if (existing) throw { status: 409, message: 'An account with this email already exists' };
 
   let normalizedUsername = String(username || '').trim().toLowerCase();
@@ -92,7 +93,7 @@ const register = async ({ firstName, lastName, email, phone, password, roles, us
   const user = await User.create({
     firstName,
     lastName,
-    email,
+    email: normalizedEmail,
     phone,
     password: hashed,
     roles: validRoles,
@@ -106,7 +107,7 @@ const register = async ({ firstName, lastName, email, phone, password, roles, us
 };
 
 const verifyOtp = async ({ email, otp }) => {
-  const user = await User.findOne({ email }).select('+otp +otpExpiry');
+  const user = await User.findOne({ email: String(email || '').trim().toLowerCase() }).select('+otp +otpExpiry');
   if (!user) throw { status: 404, message: 'User not found' };
   if (user.isVerified) throw { status: 400, message: 'Email is already verified' };
   if (!user.otp || !user.otpExpiry) throw { status: 400, message: 'No OTP found. Please request a new one.' };
@@ -123,7 +124,7 @@ const verifyOtp = async ({ email, otp }) => {
 };
 
 const login = async ({ email, password }) => {
-  const user = await User.findOne({ email }).select('+password');
+  const user = await User.findOne({ email: String(email || '').trim().toLowerCase() }).select('+password');
   if (!user) throw { status: 401, message: 'Invalid email or password' };
   if (!user.isActive) throw { status: 403, message: 'Your account has been deactivated' };
   if (!user.isVerified) throw { status: 403, message: 'Please verify your email before logging in' };
@@ -136,7 +137,7 @@ const login = async ({ email, password }) => {
 };
 
 const resendOtp = async ({ email }) => {
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email: String(email || '').trim().toLowerCase() });
   if (!user) throw { status: 404, message: 'User not found' };
   if (user.isVerified) throw { status: 400, message: 'Email is already verified' };
 
@@ -145,7 +146,7 @@ const resendOtp = async ({ email }) => {
 };
 
 const forgotPassword = async ({ email }) => {
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email: String(email || '').trim().toLowerCase() });
   if (!user) throw { status: 404, message: 'No account found with this email' };
 
   await saveAndSendOTP(user, 'password-reset');
@@ -153,7 +154,7 @@ const forgotPassword = async ({ email }) => {
 };
 
 const resetPassword = async ({ email, otp, newPassword }) => {
-  const user = await User.findOne({ email }).select('+otp +otpExpiry');
+  const user = await User.findOne({ email: String(email || '').trim().toLowerCase() }).select('+otp +otpExpiry');
   if (!user) throw { status: 404, message: 'User not found' };
   if (!user.otp || !user.otpExpiry) throw { status: 400, message: 'No OTP found. Please request a new one.' };
   if (user.otpExpiry < new Date()) throw { status: 400, message: 'OTP has expired. Please request a new one.' };
