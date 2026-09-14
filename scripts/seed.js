@@ -167,7 +167,7 @@ const seed = async () => {
     await WalletTransaction.deleteMany({ wallet: { $exists: true } });
 
     await PlatformConfig.insertMany([
-      { key: 'propertyCategories', value: JSON.stringify(['house', 'lodge', 'apartment', 'office', 'shop']), description: 'Available property categories', updatedBy: admin._id },
+      { key: 'propertyCategories', value: JSON.stringify(['house', 'lodge', 'apartment', 'office', 'shop', 'cottage', 'room', 'student']), description: 'Available property categories', updatedBy: admin._id },
       { key: 'vehicleTypes', value: JSON.stringify(['sedan', 'suv', 'truck', 'van', 'motorcycle', 'minibus']), description: 'Available vehicle types', updatedBy: admin._id },
       { key: 'serviceCategories', value: JSON.stringify(['cleaning', 'electrical', 'plumbing', 'moving', 'painting']), description: 'Available service categories', updatedBy: admin._id },
     ]);

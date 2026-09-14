@@ -28,7 +28,7 @@ const isServiceProvider = require('../middleware/isServiceProvider');
  *           enum: [residential, commercial]
  *         category:
  *           type: string
- *           enum: [house, lodge, apartment, office, shop]
+ *           enum: [house, lodge, apartment, office, shop, cottage, room, student]
  *         purpose:
  *           type: string
  *           enum: [rent, sale]
@@ -189,7 +189,7 @@ router.get('/mine', authenticate, isServiceProvider, propertyController.getMyPro
  *         schema: { type: string, enum: [residential, commercial] }
  *       - in: query
  *         name: category
- *         schema: { type: string, enum: [house, lodge, apartment, office, shop] }
+ *         schema: { type: string, enum: [house, lodge, apartment, office, shop, cottage, room, student] }
  *       - in: query
  *         name: purpose
  *         schema: { type: string, enum: [rent, sale] }
@@ -226,11 +226,10 @@ router.get('/', authenticate, propertyController.listProperties);
  *               type:
  *                 type: string
  *                 enum: [residential, commercial]
- *               category:
+*               category:
  *                 type: string
- *                 enum: [house, lodge, apartment, office, shop]
+ *                 enum: [house, lodge, apartment, office, shop, cottage, room, student]
  *               purpose:
- *                 type: string
  *                 enum: [rent, sale]
  *               price: { type: number, example: 450 }
  *               currency:
@@ -305,7 +304,7 @@ router.get('/:id', authenticate, propertyController.getPropertyById);
  *               title: { type: string }
  *               description: { type: string }
  *               type: { type: string, enum: [residential, commercial] }
- *               category: { type: string, enum: [house, lodge, apartment, office, shop] }
+ *               category: { type: string, enum: [house, lodge, apartment, office, shop, cottage, room, student] }
  *               purpose: { type: string, enum: [rent, sale] }
  *               price: { type: number }
  *               currency: { type: string, enum: [USD, ZWG] }
