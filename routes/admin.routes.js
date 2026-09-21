@@ -35,6 +35,7 @@ const guard = [authenticate, isAdmin];
  *       | `vehicleOwnerDepositAmount` | `0` | Vehicle registration | USD deposit required for vehicle owners (if applicable). |
  *       | `minBookingAmountVehicle` | `0` | Vehicle bookings | Minimum agreed price for a vehicle booking. |
  *       | `minBookingAmountService` | `0` | Service bookings | Minimum agreed price for a service booking. |
+ *       | `vehicleMinPricePerKm` | `0.5` | Vehicle ride offers | Minimum USD price per km used to compute the customer's ride offer slider. |
  *
  *       **How to update:** Use `PUT /api/admin/pricing/:key` with `{ "value": "15" }`.
  *       All values are stored as strings and parsed to numbers at runtime.
@@ -95,6 +96,7 @@ router.get('/pricing', ...guard, adminController.getPricingRules);
  *             - vehicleOwnerDepositAmount
  *             - minBookingAmountVehicle
  *             - minBookingAmountService
+ *             - vehicleMinPricePerKm
  *         example: platformFeePercent
  *     requestBody:
  *       required: true

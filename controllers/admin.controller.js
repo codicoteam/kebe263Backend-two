@@ -20,6 +20,7 @@ const PRICING_KEYS = [
   'vehicleOwnerDepositAmount',
   'minBookingAmountVehicle',
   'minBookingAmountService',
+  'vehicleMinPricePerKm',
 ];
 
 const getPricingRules = async (req, res, next) => {

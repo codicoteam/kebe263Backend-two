@@ -62,4 +62,24 @@ router.get('/platform-fee', authenticate, isAdmin, configController.getPlatformF
  */
 router.put('/platform-fee', authenticate, isAdmin, configController.setPlatformFee);
 
+/**
+ * @swagger
+ * /api/config/vehicle-pricing:
+ *   get:
+ *     summary: Get the admin-configured minimum vehicle price per km (any authenticated user)
+ *     tags: [Config]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Minimum price per km used to compute ride offer suggestions
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 minPricePerKm: { type: number, example: 0.5 }
+ */
+router.get('/vehicle-pricing', authenticate, configController.getVehiclePricing);
+
 module.exports = router;

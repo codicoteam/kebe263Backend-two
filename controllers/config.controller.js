@@ -1,4 +1,5 @@
 const AppConfig = require('../models/appConfig.model');
+const { getConfig } = require('../utils/configCache');
 const { success, error } = require('../utils/apiResponse');
 
 const getPlatformFee = async (req, res, next) => {
@@ -28,4 +29,13 @@ const setPlatformFee = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { getPlatformFee, setPlatformFee };
+// Any authenticated user (customer or SP) needs this to compute the ride offer
+// slider — it's admin-set pricing, not an admin-only read like the fee endpoints.
+const getVehiclePricing = async (req, res, next) => {
+  try {
+    const minPricePerKm = Number(await getConfig('vehicleMinPricePerKm', 0.5));
+    return success(res, 'Vehicle pricing fetched', { minPricePerKm });
+  } catch (err) { next(err); }
+};
+
+module.exports = { getPlatformFee, setPlatformFee, getVehiclePricing };
