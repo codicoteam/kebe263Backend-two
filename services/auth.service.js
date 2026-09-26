@@ -19,46 +19,82 @@ const checkUsername = async (rawUsername) => {
   return { available: !existing };
 };
 
-const saveAndSendOTP = async (user, purpose = 'verification') => {
+const OTP_RESEND_COOLDOWN_MS = (Number(process.env.OTP_RESEND_COOLDOWN_SECONDS) || 30) * 1000;
+
+// Atomically reserves the right to send an OTP. The update only matches when the
+// last send is older than the cooldown, so N parallel requests (double-taps,
+// client retries after a slow gateway) let exactly one through — the rest get a
+// 429 with the seconds remaining. Returns the previous sentAt so a definite
+// send failure can hand the slot back.
+const claimOtpSend = async (user, { codeField, expiryField, sentAtField, otp, expiryMs }) => {
+  const now = Date.now();
+  const previous = await User.findOneAndUpdate(
+    {
+      _id: user._id,
+      $or: [{ [sentAtField]: null }, { [sentAtField]: { $lte: new Date(now - OTP_RESEND_COOLDOWN_MS) } }],
+    },
+    { $set: { [codeField]: otp, [expiryField]: new Date(now + expiryMs), [sentAtField]: new Date(now) } },
+    { new: false }
+  ).select(`+${sentAtField}`);
+
+  if (!previous) {
+    const current = await User.findById(user._id).select(`+${sentAtField}`);
+    const sentAt = current?.[sentAtField] ? new Date(current[sentAtField]).getTime() : now;
+    const retryAfter = Math.max(1, Math.ceil((sentAt + OTP_RESEND_COOLDOWN_MS - now) / 1000));
+    throw {
+      status: 429,
+      message: `Please wait ${retryAfter}s before requesting another code`,
+      retryAfter,
+    };
+  }
+  return previous[sentAtField] || null;
+};
+
+const releaseOtpSend = (user, sentAtField, previousSentAt) =>
+  User.updateOne({ _id: user._id }, previousSentAt
+    ? { $set: { [sentAtField]: previousSentAt } }
+    : { $unset: { [sentAtField]: 1 } });
+
+const sendWithCooldown = async (user, fields, deliver) => {
   const otp = generateOTP();
-  user.otp = otp;
-  user.otpExpiry = new Date(Date.now() + OTP_EXPIRY_MS);
-  await user.save({ validateModifiedOnly: true });
-
-  await sendEmail({
-    to: user.email,
-    subject: purpose === 'password-reset' ? 'KEBE Super App — Password Reset OTP' : 'KEBE Super App — Verify Your Email',
-    html: otpEmailTemplate(otp, purpose),
-  });
-
+  const previousSentAt = await claimOtpSend(user, { ...fields, otp });
+  try {
+    await deliver(otp);
+  } catch (err) {
+    if (!err.deliveryUnknown) await releaseOtpSend(user, fields.sentAtField, previousSentAt);
+    throw err;
+  }
   return otp;
 };
 
-const saveAndSendDeleteOTP = async (user) => {
-  const otp = generateOTP();
-  user.deleteOtp = otp;
-  user.deleteOtpExpiry = new Date(Date.now() + OTP_EXPIRY_MS);
-  await user.save({ validateModifiedOnly: true });
+const saveAndSendOTP = (user, purpose = 'verification') =>
+  sendWithCooldown(
+    user,
+    { codeField: 'otp', expiryField: 'otpExpiry', sentAtField: 'otpSentAt', expiryMs: OTP_EXPIRY_MS },
+    (otp) => sendEmail({
+      to: user.email,
+      subject: purpose === 'password-reset' ? 'KEBE Super App — Password Reset OTP' : 'KEBE Super App — Verify Your Email',
+      html: otpEmailTemplate(otp, purpose),
+    })
+  );
 
-  await sendEmail({
-    to: user.email,
-    subject: 'KEBE Super App — Confirm Account Deletion',
-    html: otpEmailTemplate(otp, 'account-deletion'),
-  });
+const saveAndSendDeleteOTP = (user) =>
+  sendWithCooldown(
+    user,
+    { codeField: 'deleteOtp', expiryField: 'deleteOtpExpiry', sentAtField: 'deleteOtpSentAt', expiryMs: OTP_EXPIRY_MS },
+    (otp) => sendEmail({
+      to: user.email,
+      subject: 'KEBE Super App — Confirm Account Deletion',
+      html: otpEmailTemplate(otp, 'account-deletion'),
+    })
+  );
 
-  return otp;
-};
-
-const saveAndSendPhoneOTP = async (user) => {
-  const otp = generateOTP();
-  user.phoneOtp = otp;
-  user.phoneOtpExpiry = new Date(Date.now() + PHONE_OTP_EXPIRY_MS);
-  await user.save({ validateModifiedOnly: true });
-
-  await sendSms({ to: user.phone, message: otpSmsTemplate(otp) });
-
-  return otp;
-};
+const saveAndSendPhoneOTP = (user) =>
+  sendWithCooldown(
+    user,
+    { codeField: 'phoneOtp', expiryField: 'phoneOtpExpiry', sentAtField: 'phoneOtpSentAt', expiryMs: PHONE_OTP_EXPIRY_MS },
+    (otp) => sendSms({ to: user.phone, message: otpSmsTemplate(otp) })
+  );
 
 const register = async ({ firstName, lastName, email, phone, password, roles, username }) => {
   const normalizedEmail = String(email || '').trim().toLowerCase();
@@ -101,9 +137,23 @@ const register = async ({ firstName, lastName, email, phone, password, roles, us
     usernamePlaceholder: isPlaceholder,
   });
 
-  await saveAndSendPhoneOTP(user);
+  // The account already exists at this point — a flaky SMS gateway must not turn
+  // a successful sign-up into an error (a retry would then hit "email exists").
+  let smsSent = true;
+  try {
+    await saveAndSendPhoneOTP(user);
+  } catch (err) {
+    smsSent = false;
+    console.error('[Register] Verification SMS failed:', err.message);
+  }
 
-  return { userId: user._id, message: 'Registration successful. Check your phone for the verification code.' };
+  return {
+    userId: user._id,
+    smsSent,
+    message: smsSent
+      ? 'Registration successful. Check your phone for the verification code.'
+      : 'Account created, but we could not send the verification SMS. Tap "Resend code" to try again.',
+  };
 };
 
 const verifyOtp = async ({ email, otp }) => {

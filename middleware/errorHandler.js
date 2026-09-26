@@ -6,6 +6,7 @@ const errorHandler = (err, req, res, next) => {
   }
 
   if (err.status) {
+    if (err.retryAfter) res.set('Retry-After', String(err.retryAfter));
     return error(res, err.message, err.status, err);
   }
 

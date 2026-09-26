@@ -34,3 +34,18 @@ Thumbs.db
 # Build output
 dist/
 build/
+
+# --- Claude Code / agent tooling ---
+!.claude/skills/
+!.claude/skills/**
+CLAUDE.md
+.claude.json
+.claude.local.json
+.aider*
+.cursor/
+.continue/
+
+# --- Always keep READMEs, wherever they live ---
+!**/README.md
+!**/README
+!**/readme.md

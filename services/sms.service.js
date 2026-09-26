@@ -8,6 +8,11 @@ const validateSmsConfig = () => {
   }
 };
 
+const SMS_TIMEOUT_MS = (Number(process.env.SMS_TIMEOUT_SECONDS) || 10) * 1000;
+
+// Errors carry `deliveryUnknown` when the gateway may still have sent the SMS
+// (timeout / dropped response) — callers must not release the resend cooldown
+// then, or a retry could deliver a duplicate.
 const sendSms = async ({ to, message }) => {
   if (process.env.SMS_TEST_MODE === 'true') {
     console.log('[SMS TEST MODE] to:', to);
@@ -28,9 +33,16 @@ const sendSms = async ({ to, message }) => {
 
   let response;
   try {
-    response = await fetch(url);
+    response = await fetch(url, { signal: AbortSignal.timeout(SMS_TIMEOUT_MS) });
   } catch (err) {
-    throw new Error(`SMS delivery failed: could not reach SMS gateway. ${err.message}`);
+    const timedOut = err.name === 'TimeoutError' || err.name === 'AbortError';
+    const failure = new Error(
+      timedOut
+        ? 'SMS delivery failed: the SMS gateway took too long to respond.'
+        : `SMS delivery failed: could not reach SMS gateway. ${err.message}`
+    );
+    failure.deliveryUnknown = timedOut;
+    throw failure;
   }
 
   let body;

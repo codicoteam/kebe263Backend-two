@@ -10,7 +10,7 @@ const register = async (req, res, next) => {
     }
 
     const result = await authService.register({ firstName, lastName, email, phone, password, roles, username });
-    return success(res, result.message, { userId: result.userId }, 201);
+    return success(res, result.message, { userId: result.userId, smsSent: result.smsSent }, 201);
   } catch (err) {
     next(err);
   }

@@ -6,6 +6,7 @@ const error = (res, message, statusCode = 500, err = null) => {
   const payload = { success: false, message, data: null };
   if (err) {
     payload.error = err.message || err;
+    if (err.retryAfter) payload.retryAfter = err.retryAfter;
   }
   return res.status(statusCode).json(payload);
 };

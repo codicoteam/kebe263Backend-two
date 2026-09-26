@@ -108,6 +108,20 @@ const userSchema = new mongoose.Schema(
       type: Date,
       select: false,
     },
+    // When each OTP was last sent — the server-side resend cooldown is enforced
+    // against these, so it holds no matter how many clients/taps race.
+    otpSentAt: {
+      type: Date,
+      select: false,
+    },
+    phoneOtpSentAt: {
+      type: Date,
+      select: false,
+    },
+    deleteOtpSentAt: {
+      type: Date,
+      select: false,
+    },
     deleteOtp: {
       type: String,
       select: false,
@@ -150,6 +164,9 @@ userSchema.methods.toSafeObject = function () {
   delete obj.phoneOtpExpiry;
   delete obj.deleteOtp;
   delete obj.deleteOtpExpiry;
+  delete obj.otpSentAt;
+  delete obj.phoneOtpSentAt;
+  delete obj.deleteOtpSentAt;
   return obj;
 };
 
