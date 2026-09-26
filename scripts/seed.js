@@ -168,8 +168,8 @@ const seed = async () => {
 
     await PlatformConfig.insertMany([
       { key: 'propertyCategories', value: JSON.stringify(['house', 'lodge', 'apartment', 'office', 'shop', 'cottage', 'room', 'student']), description: 'Available property categories', updatedBy: admin._id },
-      { key: 'vehicleTypes', value: JSON.stringify(['sedan', 'suv', 'truck', 'van', 'motorcycle', 'minibus']), description: 'Available vehicle types', updatedBy: admin._id },
-      { key: 'serviceCategories', value: JSON.stringify(['cleaning', 'electrical', 'plumbing', 'moving', 'painting']), description: 'Available service categories', updatedBy: admin._id },
+      { key: 'vehicleTypes', value: JSON.stringify(['sedan', 'suv', 'hatchback', 'pickup', 'luxury', 'limousine', 'motorcycle', 'bicycle', 'tuktuk', 'minibus', 'bus', 'ambulance', 'van', 'boxvan', 'truck', 'flatbed', 'refrigerated', 'tanker', 'container', 'tipper', 'dumptruck', 'towtruck', 'trailer', 'lowbed', 'excavator', 'bulldozer', 'backhoe', 'loader', 'crane', 'grader', 'compactor', 'concretemixer', 'tractor', 'forklift', 'skidsteer', 'telehandler', 'drillrig']), description: 'Available vehicle types', updatedBy: admin._id },
+      { key: 'serviceCategories', value: JSON.stringify(['cleaning', 'electrical', 'plumbing', 'moving', 'painting', 'construction', 'energy', 'plumbing_water', 'automotive', 'security_home', 'industrial', 'logistics', 'it_digital', 'business', 'beauty_health', 'domestic', 'creative_events']), description: 'Available service categories', updatedBy: admin._id },
     ]);
 
     const serviceProvidersData = [
