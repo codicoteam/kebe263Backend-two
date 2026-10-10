@@ -153,6 +153,25 @@ const confirmAccountDeletion = async (req, res, next) => {
   }
 };
 
+const refreshToken = async (req, res, next) => {
+  try {
+    const { refreshToken } = req.body;
+    const result = await authService.refreshAccessToken(refreshToken);
+    return success(res, 'Token refreshed', result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const logout = async (req, res, next) => {
+  try {
+    const result = await authService.logout(req.body.refreshToken);
+    return success(res, result.message);
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   register,
   verifyOtp,
@@ -164,6 +183,8 @@ module.exports = {
   claimUsername,
   requestPhoneOtp,
   loginWithPhone,
+  refreshToken,
+  logout,
   requestAccountDeletion,
   confirmAccountDeletion,
 };

@@ -425,6 +425,58 @@ router.post('/resend-otp', authController.resendOtp);
 
 /**
  * @swagger
+ * /api/auth/refresh-token:
+ *   post:
+ *     summary: Exchange a refresh token for a new access token
+ *     description: >
+ *       Access tokens expire after JWT_EXPIRES_IN (14 days by default). Call this
+ *       with the refreshToken issued at login/verify-otp before (or right after) the
+ *       access token expires to get a new one without forcing the user to log in
+ *       again. The refresh token itself is single-use — this call also returns a
+ *       new refreshToken that must replace the old one client-side.
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [refreshToken]
+ *             properties:
+ *               refreshToken: { type: string }
+ *     responses:
+ *       200:
+ *         description: New access + refresh token pair
+ *       401:
+ *         description: Invalid, expired, or already-used refresh token — log in again
+ */
+router.post('/refresh-token', authController.refreshToken);
+
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Revoke a refresh token (logout)
+ *     description: >
+ *       Invalidates the given refresh token so it can no longer be used to mint new
+ *       access tokens. Always succeeds, even for an unknown/already-revoked token —
+ *       the client should discard its stored tokens regardless of the response.
+ *     tags: [Auth]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               refreshToken: { type: string }
+ *     responses:
+ *       200:
+ *         description: Logged out
+ */
+router.post('/logout', authController.logout);
+
+/**
+ * @swagger
  * /api/auth/forgot-password:
  *   post:
  *     summary: Request a password reset OTP

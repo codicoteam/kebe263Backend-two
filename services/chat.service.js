@@ -5,6 +5,7 @@ const ServiceBooking = require('../models/serviceBooking.model');
 const PropertyBooking = require('../models/propertyBooking.model');
 const Property = require('../models/property.model');
 const User = require('../models/user.model');
+const notify = require('../utils/notify');
 
 const isParticipant = (room, userId) =>
   room.participants.some((p) => {
@@ -248,6 +249,16 @@ const createSupportRoom = async (userId, { subject, firstMessage, targetUserId, 
     imageUrl: imageUrl || (normalizedAttachments[0]?.url) || null,
     attachments: normalizedAttachments,
   });
+
+  // This path skips the socket layer entirely (it's the REST entry point for
+  // opening a support thread), so it's the one place that must notify the
+  // admin team itself rather than relying on send:message's recipient loop.
+  const sender = await User.findById(userId).select('firstName lastName');
+  const senderName = sender ? `${sender.firstName} ${sender.lastName}` : 'A user';
+  for (const adminId of adminIds) {
+    if (adminId === String(userId)) continue;
+    notify(adminId, `New support message from ${senderName}`, preview, 'message');
+  }
 
   return room.populate('participants', 'firstName lastName username profileImage isAdmin');
 };

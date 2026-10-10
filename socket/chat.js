@@ -136,21 +136,26 @@ const setupChat = (chatNamespace) => {
           chatNamespace.to('admins').emit('room:resolved', { roomId });
         }
 
-        // Notify participants not currently in this room
+        // Participants not currently looking at this room — live socket nudge
+        // for anyone online elsewhere in the app, plus a real Notification
+        // record (and push, via notify()) for everyone, online or not, so a
+        // message is never missed just because the chat screen wasn't open.
         const socketsInRoom = await chatNamespace.in(roomId).fetchSockets();
         const onlineIds = new Set(socketsInRoom.map((s) => s.user._id.toString()));
 
-        const offlineParticipants = room.participants.filter(
+        const recipientsToNotify = room.participants.filter(
           (p) => p.toString() !== userId && !onlineIds.has(p.toString())
         );
 
-        for (const recipientId of offlineParticipants) {
+        const senderName = `${socket.user.firstName} ${socket.user.lastName}`;
+        for (const recipientId of recipientsToNotify) {
           chatNamespace.to(`user:${recipientId}`).emit('notification:message', {
             roomId,
-            senderName: `${socket.user.firstName} ${socket.user.lastName}`,
+            senderName,
             preview: preview.substring(0, 50),
             message: payload,
           });
+          createNotification(recipientId, senderName, preview, 'message');
         }
       } catch (err) {
         socket.emit('error', { message: 'Could not send message' });

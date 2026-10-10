@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const User = require('../models/user.model');
 const generateOTP = require('../utils/generateOTP');
 const generateToken = require('../utils/generateToken');
+const { issueRefreshToken, rotateRefreshToken, revokeRefreshToken } = require('../utils/refreshToken');
 const { sendEmail, otpEmailTemplate } = require('../utils/sendEmail');
 const { sendSms, otpSmsTemplate } = require('./sms.service');
 const { phoneLookupCandidates } = require('../utils/phone');
@@ -170,7 +171,8 @@ const verifyOtp = async ({ email, otp }) => {
   await user.save({ validateModifiedOnly: true });
 
   const token = generateToken({ id: user._id, isAdmin: user.isAdmin, roles: user.roles });
-  return { token, user: user.toSafeObject() };
+  const refreshToken = await issueRefreshToken(user._id);
+  return { token, refreshToken, user: user.toSafeObject() };
 };
 
 const login = async ({ email, password }) => {
@@ -183,7 +185,8 @@ const login = async ({ email, password }) => {
   if (!isMatch) throw { status: 401, message: 'Invalid email or password' };
 
   const token = generateToken({ id: user._id, isAdmin: user.isAdmin, roles: user.roles });
-  return { token, user: user.toSafeObject() };
+  const refreshToken = await issueRefreshToken(user._id);
+  return { token, refreshToken, user: user.toSafeObject() };
 };
 
 const resendOtp = async ({ email }) => {
@@ -247,7 +250,25 @@ const loginWithPhone = async ({ phone, otp }) => {
   await user.save({ validateModifiedOnly: true });
 
   const token = generateToken({ id: user._id, isAdmin: user.isAdmin, roles: user.roles });
-  return { token, user: user.toSafeObject() };
+  const refreshToken = await issueRefreshToken(user._id);
+  return { token, refreshToken, user: user.toSafeObject() };
+};
+
+// Exchanges a still-valid refresh token for a new access token, rotating the
+// refresh token in the same step so each one is single-use.
+const refreshAccessToken = async (rawRefreshToken) => {
+  const { userId, refreshToken } = await rotateRefreshToken(rawRefreshToken);
+  const user = await User.findById(userId);
+  if (!user) throw { status: 401, message: 'Invalid or expired refresh token. Please log in again.' };
+  if (!user.isActive) throw { status: 403, message: 'Your account has been deactivated' };
+
+  const token = generateToken({ id: user._id, isAdmin: user.isAdmin, roles: user.roles });
+  return { token, refreshToken, user: user.toSafeObject() };
+};
+
+const logout = async (rawRefreshToken) => {
+  await revokeRefreshToken(rawRefreshToken);
+  return { message: 'Logged out' };
 };
 
 const claimUsername = async (userId, rawUsername) => {
@@ -298,6 +319,8 @@ module.exports = {
   claimUsername,
   requestPhoneOtp,
   loginWithPhone,
+  refreshAccessToken,
+  logout,
   requestAccountDeletion,
   confirmAccountDeletion,
 };
