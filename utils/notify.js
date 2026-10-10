@@ -20,6 +20,10 @@ const sendFcmPush = async (userId, tokens, title, body) => {
 };
 
 const createNotification = async (recipientId, title, message, type = 'system') => {
+  if (!recipientId) {
+    console.warn('[Notify] Skipped: no recipientId provided for notification:', title);
+    return null;
+  }
   try {
     const [notification, user] = await Promise.all([
       Notification.create({ recipient: recipientId, title, message, type }),

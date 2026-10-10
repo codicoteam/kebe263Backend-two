@@ -26,6 +26,11 @@ const contactRoutes = require('./routes/contact.routes');
 
 const app = express();
 
+// EC2 sits behind a reverse proxy (nginx/ALB) which sets X-Forwarded-For —
+// trust it so express-rate-limit and req.ip resolve the real client IP
+// instead of rejecting the header or rate-limiting the proxy's IP for everyone.
+app.set('trust proxy', 1);
+
 app.use(helmet({
   hsts: false,
   crossOriginOpenerPolicy: false,
@@ -89,7 +94,12 @@ if (process.env.NODE_ENV !== 'test') {
 
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  // The app polls /api/notifications, /api/notifications/unread-count and
+  // /api/wallet every 30s in the background (two contexts + per-page pollers),
+  // which alone can burn 100-150 of a 200 budget per active tab before any
+  // real user action — 600 leaves real headroom instead of locking users out
+  // for the rest of the 15-minute window the moment background polling adds up.
+  max: 600,
   message: { success: false, message: 'Too many requests, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,

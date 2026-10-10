@@ -201,7 +201,7 @@ const payDeposit = async (serviceId, owner, { phone, method = 'ecocash' }) => {
   // to the platform default when nothing specific has been set for this one.
   const DEPOSIT_FEE = service.depositAmount > 0
     ? service.depositAmount
-    : Number(await getConfig('serviceDepositFee', process.env.SERVICE_DEPOSIT_FEE || '5'));
+    : Number(await getConfig('serviceDepositFee', process.env.SERVICE_DEPOSIT_FEE || '1'));
   const reference = `DEPOSIT-${serviceId}-${owner._id}-${Date.now()}`;
 
   const paynow = getPaynow();

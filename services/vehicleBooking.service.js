@@ -114,6 +114,7 @@ const createBooking = async (customerId, vehicleId, data) => {
 const acceptBooking = async (bookingId, ownerId) => {
   const booking = await VehicleBooking.findById(bookingId);
   if (!booking) throw { status: 404, message: 'Booking not found' };
+  if (!ownerId) throw { status: 401, message: 'Authentication required' };
   if (!booking.owner || booking.owner.toString() !== ownerId.toString()) throw { status: 403, message: 'Not your booking' };
   if (booking.status !== 'pending') throw { status: 400, message: `Cannot accept a booking with status: ${booking.status}` };
   if (booking.priceStatus === 'counterOffered') throw { status: 400, message: 'A counter offer is pending. Customer must accept or decline first.' };
@@ -141,6 +142,7 @@ const acceptBooking = async (bookingId, ownerId) => {
 const counterOffer = async (bookingId, ownerId, counterPrice) => {
   const booking = await VehicleBooking.findById(bookingId);
   if (!booking) throw { status: 404, message: 'Booking not found' };
+  if (!ownerId) throw { status: 401, message: 'Authentication required' };
   if (!booking.owner || booking.owner.toString() !== ownerId.toString()) throw { status: 403, message: 'Not your booking' };
   if (booking.status !== 'pending') throw { status: 400, message: `Cannot counter offer a booking with status: ${booking.status}` };
   if (!counterPrice || counterPrice <= 0) throw { status: 400, message: 'Counter price must be a positive number' };
@@ -243,6 +245,7 @@ const customerCounterOffer = async (bookingId, customerId, counterPrice) => {
 const acceptCustomerCounter = async (bookingId, ownerId) => {
   const booking = await VehicleBooking.findById(bookingId);
   if (!booking) throw { status: 404, message: 'Booking not found' };
+  if (!ownerId) throw { status: 401, message: 'Authentication required' };
   if (!booking.owner || booking.owner.toString() !== ownerId.toString()) throw { status: 403, message: 'Not your booking' };
   if (booking.priceStatus !== 'customerCountered') throw { status: 400, message: 'No customer counter offer to accept' };
 
@@ -274,6 +277,7 @@ const acceptCustomerCounter = async (bookingId, ownerId) => {
 const rejectCustomerCounter = async (bookingId, ownerId) => {
   const booking = await VehicleBooking.findById(bookingId);
   if (!booking) throw { status: 404, message: 'Booking not found' };
+  if (!ownerId) throw { status: 401, message: 'Authentication required' };
   if (!booking.owner || booking.owner.toString() !== ownerId.toString()) throw { status: 403, message: 'Not your booking' };
   if (booking.priceStatus !== 'customerCountered') throw { status: 400, message: 'No customer counter offer to reject' };
 
@@ -295,6 +299,7 @@ const rejectCustomerCounter = async (bookingId, ownerId) => {
 const startRide = async (bookingId, ownerId) => {
   const booking = await VehicleBooking.findById(bookingId);
   if (!booking) throw { status: 404, message: 'Booking not found' };
+  if (!ownerId) throw { status: 401, message: 'Authentication required' };
   if (!booking.owner || booking.owner.toString() !== ownerId.toString()) throw { status: 403, message: 'Not your booking' };
   if (booking.status !== 'accepted') throw { status: 400, message: `Cannot start a booking with status: ${booking.status}` };
 
@@ -315,6 +320,7 @@ const startRide = async (bookingId, ownerId) => {
 const completeBooking = async (bookingId, ownerId) => {
   const booking = await VehicleBooking.findById(bookingId);
   if (!booking) throw { status: 404, message: 'Booking not found' };
+  if (!ownerId) throw { status: 401, message: 'Authentication required' };
   if (!booking.owner || booking.owner.toString() !== ownerId.toString()) throw { status: 403, message: 'Not your booking' };
   if (booking.status !== 'inProgress') throw { status: 400, message: `Cannot complete a booking with status: ${booking.status}` };
 
