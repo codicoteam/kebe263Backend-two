@@ -33,6 +33,14 @@ const propertySchema = new mongoose.Schema(
       data: { type: mongoose.Schema.Types.Mixed, default: null },
       submittedAt: { type: Date, default: null },
     },
+    // Owner deposit — amount is set by an admin at approval time since it varies
+    // per listing. Properties have no PayNow flow yet, so this is only ever
+    // settled by an admin recording a cash (or other in-person) payment.
+    depositAmount: { type: Number, default: 0 },
+    depositPaid: { type: Boolean, default: false },
+    depositPaymentMethod: { type: String, enum: ['cash'], default: null },
+    depositMarkedPaidBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    depositMarkedPaidAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

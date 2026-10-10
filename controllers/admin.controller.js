@@ -138,9 +138,24 @@ const getProperties = async (req, res, next) => {
 
 const approveProperty = async (req, res, next) => {
   try {
-    const property = await propertyService.approveProperty(req.params.id);
-    notify(property.owner, 'Listing Approved', `Your property "${property.title}" has been approved and is now live.`, 'approval');
+    const property = await propertyService.approveProperty(req.params.id, req.body?.depositAmount);
+    const needsDeposit = property.depositAmount > 0 && !property.depositPaid;
+    notify(
+      property.owner,
+      'Listing Approved',
+      needsDeposit
+        ? `Your property "${property.title}" has been approved. Pay the ${property.currency} ${property.depositAmount} deposit to go live.`
+        : `Your property "${property.title}" has been approved and is now live.`,
+      'approval'
+    );
     return success(res, 'Property approved', { property });
+  } catch (err) { next(err); }
+};
+
+const markPropertyDepositPaid = async (req, res, next) => {
+  try {
+    const property = await propertyService.markDepositPaid(req.params.id, req.user._id, req.body);
+    return success(res, 'Deposit recorded as paid', { property });
   } catch (err) { next(err); }
 };
 
@@ -278,9 +293,24 @@ const getServices = async (req, res, next) => {
 
 const approveService = async (req, res, next) => {
   try {
-    const service = await serviceProviderService.approveService(req.params.id);
-    notify(service.owner, 'Service Approved', `Your service "${service.businessName}" is now live.`, 'approval');
+    const service = await serviceProviderService.approveService(req.params.id, req.body?.depositAmount);
+    const needsDeposit = service.depositAmount > 0 && !service.depositPaid;
+    notify(
+      service.owner,
+      'Service Approved',
+      needsDeposit
+        ? `Your service "${service.businessName}" has been approved. Pay the ${service.currency} ${service.depositAmount} deposit to go live.`
+        : `Your service "${service.businessName}" is now live.`,
+      'approval'
+    );
     return success(res, 'Service approved', { service });
+  } catch (err) { next(err); }
+};
+
+const markServiceDepositPaid = async (req, res, next) => {
+  try {
+    const service = await serviceProviderService.markDepositPaid(req.params.id, req.user._id, req.body);
+    return success(res, 'Deposit recorded as paid', { service });
   } catch (err) { next(err); }
 };
 
@@ -369,11 +399,11 @@ module.exports = {
   getCategories, addCategory, removeCategory,
   broadcastNotifications, updateKycStatus, processRefund, getAdminLocations,
   getUsers, getUser, banUser, verifyUser, deleteUser,
-  getProperties, approveProperty, rejectProperty, deleteProperty, getPropertyBookings,
+  getProperties, approveProperty, markPropertyDepositPaid, rejectProperty, deleteProperty, getPropertyBookings,
   approvePropertyChange, rejectPropertyChange, disableProperty, enableProperty,
   getVehicles, approveVehicle, rejectVehicle, deleteVehicle, disableVehicle, enableVehicle, getVehicleBookings, getWallets, getUserWallet,
   approveVehicleChange, rejectVehicleChange,
-  getServices, approveService, rejectService, deleteService, getServiceBookings,
+  getServices, approveService, markServiceDepositPaid, rejectService, deleteService, getServiceBookings,
   approveServiceChange, rejectServiceChange, disableService, enableService,
   getOverview, getRevenueReport, getBookingReport, getUserReport,
   adminGetChatRooms,

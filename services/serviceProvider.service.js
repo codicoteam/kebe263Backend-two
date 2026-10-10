@@ -197,7 +197,11 @@ const payDeposit = async (serviceId, owner, { phone, method = 'ecocash' }) => {
   if (service.owner.toString() !== owner._id.toString()) throw { status: 403, message: 'Not your service' };
   if (service.depositPaid) throw { status: 400, message: 'Deposit already paid' };
 
-  const DEPOSIT_FEE = Number(await getConfig('serviceDepositFee', process.env.SERVICE_DEPOSIT_FEE || '5'));
+  // Admin may have set a per-listing amount at approval time; only fall back
+  // to the platform default when nothing specific has been set for this one.
+  const DEPOSIT_FEE = service.depositAmount > 0
+    ? service.depositAmount
+    : Number(await getConfig('serviceDepositFee', process.env.SERVICE_DEPOSIT_FEE || '5'));
   const reference = `DEPOSIT-${serviceId}-${owner._id}-${Date.now()}`;
 
   const paynow = getPaynow();
@@ -247,6 +251,7 @@ const checkDepositStatus = async (ownerId, reference) => {
       const statusResp = await paynow.pollTransaction(service.depositPollUrl);
       if (statusResp && statusResp.status && statusResp.status.toLowerCase() === 'paid') {
         service.depositPaid = true;
+        service.depositPaymentMethod = 'paynow';
         await service.save();
         notify(service.owner, 'Deposit Received', `Your deposit for "${service.businessName}" has been received. Pending admin approval.`, 'deposit');
         return { status: 'paid', depositPaid: true };
@@ -270,6 +275,7 @@ const handleDepositWebhook = async (rawBody) => {
 
   if (status.toLowerCase() === 'paid') {
     service.depositPaid = true;
+    service.depositPaymentMethod = 'paynow';
     await service.save();
     notify(service.owner, 'Deposit Received', `Your deposit for "${service.businessName}" has been received. Pending admin approval.`, 'deposit');
   }
@@ -277,9 +283,46 @@ const handleDepositWebhook = async (rawBody) => {
 
 // ─── Admin ────────────────────────────────────────────────────────────────────
 
-const approveService = async (serviceId) => {
-  const service = await ServiceProvider.findByIdAndUpdate(serviceId, { isApproved: true }, { new: true });
+const approveService = async (serviceId, depositAmount) => {
+  const update = { isApproved: true };
+  if (depositAmount != null && depositAmount !== '') {
+    const amount = Number(depositAmount);
+    if (!Number.isFinite(amount) || amount < 0) {
+      throw { status: 400, message: 'depositAmount must be a non-negative number' };
+    }
+    update.depositAmount = amount;
+  }
+  const service = await ServiceProvider.findByIdAndUpdate(serviceId, update, { new: true });
   if (!service) throw { status: 404, message: 'Service not found' };
+  return service;
+};
+
+// Admin records a deposit paid outside PayNow (owner handed over cash in person).
+const markDepositPaid = async (serviceId, adminId, { amount } = {}) => {
+  const service = await ServiceProvider.findById(serviceId);
+  if (!service) throw { status: 404, message: 'Service not found' };
+  if (service.depositPaid) throw { status: 400, message: 'Deposit already marked as paid' };
+
+  if (amount != null && amount !== '') {
+    const n = Number(amount);
+    if (!Number.isFinite(n) || n < 0) throw { status: 400, message: 'amount must be a non-negative number' };
+    service.depositAmount = n;
+  }
+
+  service.depositPaid = true;
+  service.depositPaymentMethod = 'cash';
+  service.depositMarkedPaidBy = adminId;
+  service.depositMarkedPaidAt = new Date();
+  await service.save();
+
+  notify(
+    service.owner,
+    'Deposit Received',
+    `Your cash deposit of ${service.currency} ${service.depositAmount} for "${service.businessName}" has been recorded.` +
+      (service.isApproved ? ' Your service is now live.' : ' It will go live once approved.'),
+    'deposit'
+  );
+
   return service;
 };
 
@@ -292,7 +335,10 @@ const adminGetAllServices = async ({ page = 1, limit = 20, isApproved, category,
 
   const skip = (Number(page) - 1) * Number(limit);
   const [services, total] = await Promise.all([
-    ServiceProvider.find(query).populate('owner', 'firstName lastName email phone').sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
+    ServiceProvider.find(query)
+      .populate('owner', 'firstName lastName email phone')
+      .populate('depositMarkedPaidBy', 'firstName lastName email')
+      .sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
     ServiceProvider.countDocuments(query),
   ]);
   return { services, pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) } };
@@ -301,7 +347,7 @@ const adminGetAllServices = async ({ page = 1, limit = 20, isApproved, category,
 module.exports = {
   createService, updateService, deleteService, getMyServices,
   listServices, nearbySearch, getServiceById,
-  payDeposit, handleDepositWebhook, checkDepositStatus,
+  payDeposit, handleDepositWebhook, checkDepositStatus, markDepositPaid,
   approveService, adminGetAllServices,
   requestServiceChange, approveServiceChange, rejectServiceChange, ownerDisableService,
 };

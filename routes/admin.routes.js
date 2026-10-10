@@ -528,6 +528,32 @@ router.put('/properties/:id/approve', ...guard, adminController.approveProperty)
 
 /**
  * @swagger
+ * /api/admin/properties/{id}/mark-deposit-paid:
+ *   put:
+ *     summary: Record a property owner's deposit as paid in person (e.g. cash) — notifies owner
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount: { type: number, description: 'Overrides the stored deposit amount if provided' }
+ *     responses:
+ *       200: { description: Deposit recorded as paid }
+ *       400: { description: Deposit already marked as paid }
+ */
+router.put('/properties/:id/mark-deposit-paid', ...guard, adminController.markPropertyDepositPaid);
+
+/**
+ * @swagger
  * /api/admin/properties/{id}/reject:
  *   put:
  *     summary: Reject a property listing — notifies owner
@@ -933,6 +959,32 @@ router.get('/services', ...guard, adminController.getServices);
  *       200: { description: Service approved }
  */
 router.put('/services/:id/approve', ...guard, adminController.approveService);
+
+/**
+ * @swagger
+ * /api/admin/services/{id}/mark-deposit-paid:
+ *   put:
+ *     summary: Record a service provider's deposit as paid in person (e.g. cash) — notifies owner
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount: { type: number, description: 'Overrides the stored deposit amount if provided' }
+ *     responses:
+ *       200: { description: Deposit recorded as paid }
+ *       400: { description: Deposit already marked as paid }
+ */
+router.put('/services/:id/mark-deposit-paid', ...guard, adminController.markServiceDepositPaid);
 
 /**
  * @swagger

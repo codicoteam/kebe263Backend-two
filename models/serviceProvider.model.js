@@ -42,6 +42,11 @@ const serviceProviderSchema = new mongoose.Schema(
     depositAmount: { type: Number, default: 0 },
     depositReference: { type: String, default: null },
     depositPollUrl: { type: String, default: null },
+    // Audit trail for who settled the deposit and how — PayNow confirms itself,
+    // cash is recorded by an admin on the spot (owner shows up and pays in person).
+    depositPaymentMethod: { type: String, enum: ['paynow', 'cash'], default: null },
+    depositMarkedPaidBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    depositMarkedPaidAt: { type: Date, default: null },
     rating: { type: Number, default: 0 },
     totalReviews: { type: Number, default: 0 },
   },

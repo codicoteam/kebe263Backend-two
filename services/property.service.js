@@ -325,9 +325,47 @@ const handlePaynowResult = async (rawBody) => {
 
 // ─── Admin ────────────────────────────────────────────────────────────────────
 
-const approveProperty = async (propertyId) => {
-  const property = await Property.findByIdAndUpdate(propertyId, { isApproved: true }, { new: true });
+const approveProperty = async (propertyId, depositAmount) => {
+  const update = { isApproved: true };
+  if (depositAmount != null && depositAmount !== '') {
+    const amount = Number(depositAmount);
+    if (!Number.isFinite(amount) || amount < 0) {
+      throw { status: 400, message: 'depositAmount must be a non-negative number' };
+    }
+    update.depositAmount = amount;
+  }
+  const property = await Property.findByIdAndUpdate(propertyId, update, { new: true });
   if (!property) throw { status: 404, message: 'Property not found' };
+  return property;
+};
+
+// Admin records a deposit paid in person (cash) — properties have no PayNow
+// deposit flow, so this is the only way a property's deposit is settled.
+const markDepositPaid = async (propertyId, adminId, { amount } = {}) => {
+  const property = await Property.findById(propertyId);
+  if (!property) throw { status: 404, message: 'Property not found' };
+  if (property.depositPaid) throw { status: 400, message: 'Deposit already marked as paid' };
+
+  if (amount != null && amount !== '') {
+    const n = Number(amount);
+    if (!Number.isFinite(n) || n < 0) throw { status: 400, message: 'amount must be a non-negative number' };
+    property.depositAmount = n;
+  }
+
+  property.depositPaid = true;
+  property.depositPaymentMethod = 'cash';
+  property.depositMarkedPaidBy = adminId;
+  property.depositMarkedPaidAt = new Date();
+  await property.save();
+
+  notify(
+    property.owner,
+    'Deposit Received',
+    `Your cash deposit of ${property.currency} ${property.depositAmount} for "${property.title}" has been recorded.` +
+      (property.isApproved ? ' Your listing is now live.' : ' It will go live once approved.'),
+    'deposit'
+  );
+
   return property;
 };
 
@@ -341,7 +379,10 @@ const adminGetAllProperties = async ({ page = 1, limit = 20, isApproved, city, t
 
   const skip = (Number(page) - 1) * Number(limit);
   const [properties, total] = await Promise.all([
-    Property.find(query).populate('owner', 'firstName lastName email phone').sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
+    Property.find(query)
+      .populate('owner', 'firstName lastName email phone')
+      .populate('depositMarkedPaidBy', 'firstName lastName email')
+      .sort({ createdAt: -1 }).skip(skip).limit(Number(limit)),
     Property.countDocuments(query),
   ]);
   return { properties, pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) } };
@@ -415,6 +456,7 @@ module.exports = {
   unlockProperty,
   handlePaynowResult,
   approveProperty,
+  markDepositPaid,
   adminGetAllProperties,
   nearbyProperties,
   checkPropertyPaymentStatus,
