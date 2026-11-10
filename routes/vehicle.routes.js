@@ -3,11 +3,15 @@
  * SOCKET.IO — LIVE VEHICLE TRACKING EVENTS
  * =============================================================
  *
- * Connect:  io('http://localhost:8080')
+ * Connect:  io('https://api.backend.kebe.co.zw/rides', { auth: { token: <JWT> } })
+ *   — authenticated namespace (socketAuth, same pattern as /chat). Each
+ *     join/update event re-verifies the connected user is actually that
+ *     booking's owner/customer before letting them join or move anything.
  *
  * DRIVER events (emit from driver client):
  *   driver:joinBooking    { bookingId: string }
  *     → Driver joins the booking room to start sending location
+ *       (rejected unless socket.user is booking.owner)
  *
  *   driver:updateLocation { bookingId: string, lat: number, lng: number }
  *     → Persists location to vehicle.currentLocation in DB
@@ -16,12 +20,16 @@
  * CUSTOMER events (emit from customer client):
  *   customer:joinBooking  { bookingId: string }
  *     → Customer joins the booking room to receive location
+ *       (rejected unless socket.user is booking.customer)
  *
  * SERVER → CLIENT broadcasts:
  *   customer:locationUpdate  { lat: number, lng: number, updatedAt: Date }
  *     → Received by everyone in the booking room
+ *   booking:statusChanged    { bookingId: string, status: string, ... }
+ *     → Fired instantly on accept/start/complete/cancel (services/vehicleBooking.service.js),
+ *       so clients don't need to poll just to find out the status moved.
  *
- * NOTE: Rooms are named by bookingId. Only the driver and customer
+ * NOTE: Rooms are named `ride:{bookingId}`. Only the driver and customer
  *       of that specific booking share the room.
  * =============================================================
  */

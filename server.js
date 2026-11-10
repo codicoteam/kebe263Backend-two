@@ -30,15 +30,19 @@ const io = new Server(server, {
   allowEIO3: true,
 });
 
-const setupSocket = require('./socket');
+const setupRides = require('./socket');
 const setupChat = require('./socket/chat');
 const socketAuth = require('./middleware/socketAuth');
-
-setupSocket(io);
+const { setRidesNamespace } = require('./socket/registry');
 
 const chatNamespace = io.of('/chat');
 chatNamespace.use(socketAuth);
 setupChat(chatNamespace);
+
+const ridesNamespace = io.of('/rides');
+ridesNamespace.use(socketAuth);
+setupRides(ridesNamespace);
+setRidesNamespace(ridesNamespace);
 
 app.set('io', io);
 

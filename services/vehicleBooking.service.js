@@ -6,6 +6,21 @@ const { getConfig } = require('../utils/configCache');
 const notify = require('../utils/notify');
 const chatService = require('./chat.service');
 const promoService = require('./promoCode.service');
+const { getRidesNamespace } = require('../socket/registry');
+
+// Pushes an instant status update to both parties' booking room so the UI
+// reacts the moment it happens (driver accepted, ride started, etc.) instead
+// of waiting on the client's REST poll. Best-effort — the booking flow must
+// keep working even if no socket is connected or the namespace isn't up yet.
+const emitBookingStatus = (bookingId, status, extra = {}) => {
+  try {
+    const ns = getRidesNamespace();
+    if (!ns) return;
+    ns.to(`ride:${bookingId}`).emit('booking:statusChanged', { bookingId: String(bookingId), status, ...extra });
+  } catch {
+    // Non-fatal — live update is a nicety, not required for the booking action to succeed.
+  }
+};
 
 const getOrCreateWallet = async (ownerId, currency = 'USD') => {
   let wallet = await Wallet.findOne({ owner: ownerId });
@@ -136,6 +151,7 @@ const acceptBooking = async (bookingId, ownerId) => {
   ]);
 
   notify(notifyCustomer, 'Booking Accepted', 'Your vehicle booking has been accepted. The driver is on the way.', 'booking');
+  emitBookingStatus(booking._id, 'accepted', { driver: booking.owner });
   return booking;
 };
 
@@ -307,6 +323,7 @@ const startRide = async (bookingId, ownerId) => {
   await booking.save();
 
   notify(booking.customer, 'Ride Started', 'Your driver has started the ride. Have a safe trip with KEBE Super App!', 'booking');
+  emitBookingStatus(booking._id, 'inProgress');
 
   await booking.populate([
     { path: 'vehicle', select: 'make model year color plateNumber type images' },
@@ -378,6 +395,7 @@ const completeBooking = async (bookingId, ownerId) => {
 
   notify(notifyOwner, 'Ride Completed', `Ride completed. Your earnings: $${ownerEarnings}. Platform fee: $${platformFee}.`, 'payment');
   notify(notifyCustomer, 'Ride Completed', 'Your ride has been completed. Thank you for choosing KEBE Super App!', 'payment');
+  emitBookingStatus(booking._id, 'completed');
 
   return { booking, platformFee, ownerEarnings, feePercent, walletBalance: wallet.balance };
 };
@@ -405,6 +423,7 @@ const cancelBooking = async (bookingId, userId) => {
   } else {
     notify(booking.customer, 'Ride Cancelled', 'Your ride has been cancelled by the driver.', 'booking');
   }
+  emitBookingStatus(booking._id, 'cancelled', { cancelledBy });
   return booking;
 };
 

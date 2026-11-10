@@ -1,28 +1,49 @@
 const VehicleBooking = require('../models/vehicleBooking.model');
 const Vehicle = require('../models/vehicle.model');
 
-const setupSocket = (io) => {
-  io.on('connection', (socket) => {
-    console.log(`Socket connected: ${socket.id}`);
+// Ride-tracking namespace (mounted at /rides in server.js, behind socketAuth —
+// same pattern as /chat). Every event here re-verifies that the connected,
+// authenticated user is actually a party to the booking before letting them
+// join its room or move the needle on it: without that check anyone who knew
+// or guessed a bookingId could spy on or spoof a driver's live location.
+const setupRides = (ridesNamespace) => {
+  ridesNamespace.on('connection', (socket) => {
+    const userId = socket.user._id.toString();
 
     /**
      * Driver joins their booking room to send location updates.
      * payload: { bookingId: string }
      */
-    socket.on('driver:joinBooking', ({ bookingId }) => {
-      if (!bookingId) return;
-      socket.join(bookingId);
-      console.log(`Driver ${socket.id} joined booking room: ${bookingId}`);
+    socket.on('driver:joinBooking', async ({ bookingId } = {}) => {
+      try {
+        if (!bookingId) return;
+        const booking = await VehicleBooking.findById(bookingId).select('owner');
+        if (!booking || !booking.owner || booking.owner.toString() !== userId) {
+          return socket.emit('error', { message: 'Not your booking' });
+        }
+        socket.join(`ride:${bookingId}`);
+        socket.emit('ride:joined', { bookingId });
+      } catch (err) {
+        socket.emit('error', { message: 'Could not join booking' });
+      }
     });
 
     /**
      * Customer joins booking room to receive live location.
      * payload: { bookingId: string }
      */
-    socket.on('customer:joinBooking', ({ bookingId }) => {
-      if (!bookingId) return;
-      socket.join(bookingId);
-      console.log(`Customer ${socket.id} joined booking room: ${bookingId}`);
+    socket.on('customer:joinBooking', async ({ bookingId } = {}) => {
+      try {
+        if (!bookingId) return;
+        const booking = await VehicleBooking.findById(bookingId).select('customer');
+        if (!booking || !booking.customer || booking.customer.toString() !== userId) {
+          return socket.emit('error', { message: 'Not your booking' });
+        }
+        socket.join(`ride:${bookingId}`);
+        socket.emit('ride:joined', { bookingId });
+      } catch (err) {
+        socket.emit('error', { message: 'Could not join booking' });
+      }
     });
 
     /**
@@ -31,15 +52,16 @@ const setupSocket = (io) => {
      * → persists to vehicle.currentLocation
      * → broadcasts customer:locationUpdate to the booking room
      */
-    socket.on('driver:updateLocation', async ({ bookingId, lat, lng }) => {
+    socket.on('driver:updateLocation', async ({ bookingId, lat, lng } = {}) => {
       try {
         if (!bookingId || lat == null || lng == null) return;
 
-        const booking = await VehicleBooking.findById(bookingId).select('vehicle status');
+        const booking = await VehicleBooking.findById(bookingId).select('vehicle owner status');
+        if (!booking || !booking.owner || booking.owner.toString() !== userId) return;
         // Location sharing starts the moment the driver accepts (customer tracks
         // them approaching pickup), not just once the ride is marked inProgress —
         // matches the mobile app's intent on both the driver and customer side.
-        if (!booking || !['accepted', 'inProgress'].includes(booking.status)) return;
+        if (!['accepted', 'inProgress'].includes(booking.status)) return;
 
         await Vehicle.findByIdAndUpdate(booking.vehicle, {
           $set: {
@@ -51,16 +73,16 @@ const setupSocket = (io) => {
           },
         });
 
-        io.to(bookingId).emit('customer:locationUpdate', { lat, lng, updatedAt: new Date() });
+        ridesNamespace.to(`ride:${bookingId}`).emit('customer:locationUpdate', { lat, lng, updatedAt: new Date() });
       } catch (err) {
         console.error('driver:updateLocation error:', err.message);
       }
     });
 
     socket.on('disconnect', () => {
-      console.log(`Socket disconnected: ${socket.id}`);
+      console.log(`Ride socket disconnected: ${socket.id}`);
     });
   });
 };
 
-module.exports = setupSocket;
+module.exports = setupRides;
