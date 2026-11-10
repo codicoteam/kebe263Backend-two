@@ -21,6 +21,12 @@ const PRICING_KEYS = [
   'minBookingAmountVehicle',
   'minBookingAmountService',
   'vehicleMinPricePerKm',
+  'propertyUnlockRoomRateHighDensity',
+  'propertyUnlockHouseRateHighDensity',
+  'propertyUnlockRoomRateMiddleDensity',
+  'propertyUnlockHouseRateMiddleDensity',
+  'propertyUnlockRoomRateLowDensity',
+  'propertyUnlockHouseRateLowDensity',
 ];
 
 const getPricingRules = async (req, res, next) => {

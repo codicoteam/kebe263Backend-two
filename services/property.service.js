@@ -4,11 +4,12 @@ const PropertyBooking = require('../models/propertyBooking.model');
 const Wallet = require('../models/wallet.model');
 const WalletTransaction = require('../models/walletTransaction.model');
 const { getConfig } = require('../utils/configCache');
+const { getPropertyUnlockFee } = require('../utils/propertyPricing');
 const notify = require('../utils/notify');
 const changeRequest = require('./listingChangeRequest.service');
 const promoService = require('./promoCode.service');
 
-const PROPERTY_EDITABLE_FIELDS = ['title', 'description', 'type', 'category', 'purpose', 'price', 'currency', 'rooms', 'location', 'images'];
+const PROPERTY_EDITABLE_FIELDS = ['title', 'description', 'type', 'category', 'density', 'purpose', 'price', 'currency', 'rooms', 'location', 'images'];
 
 const getOrCreateWallet = async (userId, currency = 'USD') => {
   let wallet = await Wallet.findOne({ owner: userId });
@@ -33,7 +34,7 @@ const stripLocation = (obj) => {
 // ─── Landlord ─────────────────────────────────────────────────────────────────
 
 const createProperty = async (ownerId, data) => {
-  const { title, description, type, category, purpose, price, currency, rooms, location, images } = data;
+  const { title, description, type, category, density, purpose, price, currency, rooms, location, images } = data;
   if (!title || !description || !type || !category || !purpose || price == null) {
     throw { status: 400, message: 'title, description, type, category, purpose, and price are required' };
   }
@@ -50,6 +51,7 @@ const createProperty = async (ownerId, data) => {
     description,
     type,
     category,
+    density: ['high', 'middle', 'low'].includes(density) ? density : null,
     purpose,
     price,
     currency: currency || 'USD',
@@ -119,12 +121,18 @@ const getMyProperties = async (ownerId, { page = 1, limit = 20 }) => {
 
 // ─── Customer ─────────────────────────────────────────────────────────────────
 
-const listProperties = async ({ page = 1, limit = 20, type, category, purpose, city }) => {
+const listProperties = async ({ page = 1, limit = 20, type, category, purpose, city, minPrice, maxPrice }) => {
   const query = { isApproved: true, isAvailable: true, isDisabled: { $ne: true } };
   if (type) query.type = type;
   if (category) query.category = category;
   if (purpose) query.purpose = purpose;
   if (city) query['location.city'] = { $regex: city, $options: 'i' };
+  if (minPrice != null || maxPrice != null) {
+    query.price = {};
+    if (minPrice != null && !Number.isNaN(Number(minPrice))) query.price.$gte = Number(minPrice);
+    if (maxPrice != null && !Number.isNaN(Number(maxPrice))) query.price.$lte = Number(maxPrice);
+    if (Object.keys(query.price).length === 0) delete query.price;
+  }
 
   const skip = (Number(page) - 1) * Number(limit);
   const [docs, total] = await Promise.all([
@@ -160,7 +168,7 @@ const unlockProperty = async (propertyId, customer, { phone, method = 'ecocash',
   const existing = await PropertyBooking.findOne({ property: propertyId, customer: customer._id, viewUnlocked: true });
   if (existing) throw { status: 400, message: 'You have already unlocked this property' };
 
-  const UNLOCK_FEE = Number(await getConfig('unlockFee', process.env.UNLOCK_FEE || '1'));
+  const UNLOCK_FEE = await getPropertyUnlockFee(property);
   const reference = `PROP-${propertyId}-${customer._id}-${Date.now()}`;
 
   let finalFee = UNLOCK_FEE;
@@ -388,12 +396,21 @@ const adminGetAllProperties = async ({ page = 1, limit = 20, isApproved, city, t
   return { properties, pagination: { total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / Number(limit)) } };
 };
 
-const nearbyProperties = async ({ lat, lng, radius = 10, page = 1, limit = 20 }) => {
+const nearbyProperties = async ({ lat, lng, radius = 10, page = 1, limit = 20, type, category, purpose, minPrice, maxPrice }) => {
   if (!lat || !lng) throw { status: 400, message: 'lat and lng query parameters are required' };
 
   const radiusMeters = Number(radius) * 1000;
   const skip = (Number(page) - 1) * Number(limit);
   const matchQuery = { isApproved: true, isAvailable: true, isDisabled: { $ne: true } };
+  if (type) matchQuery.type = type;
+  if (category) matchQuery.category = category;
+  if (purpose) matchQuery.purpose = purpose;
+  if (minPrice != null || maxPrice != null) {
+    matchQuery.price = {};
+    if (minPrice != null && !Number.isNaN(Number(minPrice))) matchQuery.price.$gte = Number(minPrice);
+    if (maxPrice != null && !Number.isNaN(Number(maxPrice))) matchQuery.price.$lte = Number(maxPrice);
+    if (Object.keys(matchQuery.price).length === 0) delete matchQuery.price;
+  }
 
   const geoNearStage = {
     $geoNear: {
@@ -404,9 +421,12 @@ const nearbyProperties = async ({ lat, lng, radius = 10, page = 1, limit = 20 })
       query: matchQuery,
     },
   };
+  // Match listProperties' privacy rule — full location/address is hidden
+  // until a customer pays to unlock a listing, same here.
+  const hideLocationStage = { $project: { location: 0 } };
 
   const [results, countResult] = await Promise.all([
-    Property.aggregate([geoNearStage, { $skip: skip }, { $limit: Number(limit) }]),
+    Property.aggregate([geoNearStage, { $skip: skip }, { $limit: Number(limit) }, hideLocationStage]),
     Property.aggregate([geoNearStage, { $count: 'total' }]),
   ]);
 

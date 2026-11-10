@@ -7,6 +7,9 @@ const propertySchema = new mongoose.Schema(
     description: { type: String, required: [true, 'Description is required'] },
     type: { type: String, enum: ['residential', 'commercial'], required: true },
     category: { type: String, required: true },
+    // Drives the per-listing unlock fee (see utils/propertyPricing.js) — chosen
+    // by whoever creates the listing, not inferred from the suburb.
+    density: { type: String, enum: ['high', 'middle', 'low'], default: null },
     purpose: { type: String, enum: ['rent', 'sale', 'overnight', 'daily', 'hourly'], required: true },
     price: { type: Number, required: [true, 'Price is required'] },
     currency: { type: String, enum: ['USD', 'ZWG'], default: 'USD' },
